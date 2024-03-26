@@ -19,12 +19,6 @@
 #define bzero(buf, len) memset((buf), 0, (len))
 #define bcopy(src, dst, len) memcpy((dst), (src), (len))
 
-#else
-
-// hope for the best
-extern void bcopy(const void *, void *, size_t);
-extern void bzero(void *, size_t);
-
 #endif
 
 #endif /* !_OS_LIBC_H_ */

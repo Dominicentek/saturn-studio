@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <string>
-#include "GL/glew.h"
 
 #include "saturn/libs/imgui/imgui.h"
 #include "saturn/libs/imgui/imgui_internal.h"
@@ -28,7 +27,7 @@ extern "C" {
 
 extern void open_directory(std::string);
 
-GLuint active_expression_preview = 0;
+unsigned int active_expression_preview = 0;
 int preview_width = 0;
 int preview_height = 0;
 int preview_sample_ratio = 0;
@@ -36,40 +35,7 @@ std::string last_preview_path;
 
 /* Updates the expression preview window with a PNG texture path */
 bool UpdateExpressionPreview(std::string TexturePath) {
-    // Should we update?
-    // Only update if our active preview must be changed
-    if (active_expression_preview != 0 && last_preview_path == TexturePath)
-        return true;
-
-    const char* filename = TexturePath.c_str();
-    last_preview_path = TexturePath;
-
-    // Load from file
-    unsigned char* image_data = stbi_load(filename, &preview_width, &preview_height, NULL, 4);
-    if (image_data == NULL)
-        return false;
-
-    preview_sample_ratio = preview_width / preview_height;
-
-    // Create a OpenGL texture identifier
-    active_expression_preview = 0;
-    glGenTextures(1, &active_expression_preview);
-    glBindTexture(GL_TEXTURE_2D, active_expression_preview);
-
-    // Setup filtering parameters for display
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // This is required on WebGL for non power-of-two textures
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); // Same
-
-    // Upload pixels into texture
-#if defined(GL_UNPACK_ROW_LENGTH) && !defined(__EMSCRIPTEN__)
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-#endif
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, preview_width, preview_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-    stbi_image_free(image_data);
-
-    return true;
+    return false;
 }
 
 /* Shows an expression preview with a given texture */

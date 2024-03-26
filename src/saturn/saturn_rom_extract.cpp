@@ -316,6 +316,8 @@ int saturn_rom_status(std::filesystem::path extract_dest, std::vector<std::strin
     return ROM_NEED_EXTRACT;
 }
 
+extern std::vector<std::string> split(std::string, char);
+
 int saturn_extract_rom(int type) {
     std::filesystem::path extract_dest = EXTRACT_PATH;
     std::vector<std::string> todo = {};
@@ -347,12 +349,7 @@ int saturn_extract_rom(int type) {
         extraction_progress = count++ / (float)assets.size();
         if (std::find(todo.begin(), todo.end(), asset.path) == todo.end()) continue;
         currently_extracting = asset.path;
-        std::istringstream iss = std::istringstream(asset.path);
-        std::vector<std::string> tokens = {};
-        std::string token;
-        while (std::getline(iss, token, '.')) {
-            tokens.push_back(token);
-        }
+        std::vector<std::string> tokens = split(asset.path, '.');
         unsigned char* buf = mio0[asset.mio0];
         if (tokens[tokens.size() - 1] == "png") {
             if (asset.metadata[0] == -1) {

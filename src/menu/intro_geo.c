@@ -25,6 +25,8 @@
 #define INTRO_BACKGROUND_SUPER_MARIO 0
 #define INTRO_BACKGROUND_GAME_OVER 1
 
+void interpolate_vectors(Vec3f, Vec3f, Vec3f);
+
 struct GraphNodeMore {
     /*0x00*/ struct GraphNode node;
     /*0x14*/ void *todo;

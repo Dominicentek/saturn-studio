@@ -50,12 +50,8 @@
 #if defined(_WIN32) && !defined(WINGDIAPI)
 #define WINGDIAPI __declspec(dllimport)     // Some Windows OpenGL headers need this
 #endif
-#if defined(__APPLE__)
-#define GL_SILENCE_DEPRECATION
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
+#include <PR/gbi.h>
+#include <SDL2/SDL_opengl.h>
 
 struct ImGui_ImplOpenGL2_Data
 {

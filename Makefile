@@ -31,7 +31,7 @@ TARGET_WEB ?= 0
 OSX_BUILD ?= 0
 
 # Enable -no-pie linker option
-NO_PIE ?= 1
+NO_PIE ?= 0
 
 # Specify the target you are building for, TARGET_BITS=0 means native
 TARGET_ARCH ?= native
@@ -50,9 +50,9 @@ TEXTSAVES ?= 0
 # Load resources from external files
 EXTERNAL_DATA ?= 1
 # Enable Discord Game SDK
-DISCORDGAMESDK ?= 1
+DISCORDGAMESDK ?= 0
 # Enable Discord Rich Presence
-DISCORDRPC ?= 1
+DISCORDRPC ?= 0
 # Enable Game ICON
 ICON ?= 1
 

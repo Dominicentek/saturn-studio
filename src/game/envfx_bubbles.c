@@ -11,6 +11,8 @@
 #include "audio/external.h"
 #include "textures.h"
 
+void interpolate_vectors_s16(Vec3s, Vec3s, Vec3s);
+
 /**
  * This file implements environment effects that are not snow:
  * Flowers (unused), lava bubbles and jet stream/whirlpool bubbles.

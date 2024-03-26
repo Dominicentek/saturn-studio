@@ -14,7 +14,7 @@
 #include "saturn/libs/imgui/imgui.h"
 #include "saturn/libs/imgui/imgui_internal.h"
 #include "saturn/libs/imgui/imgui_impl_sdl.h"
-#include "saturn/libs/imgui/imgui_impl_opengl3.h"
+#include "saturn/libs/imgui/imgui_impl_opengl2.h"
 #include "saturn/libs/imgui/imgui_neo_sequencer.h"
 #include "saturn/saturn.h"
 #include "saturn/saturn_colors.h"
@@ -415,7 +415,7 @@ void saturn_imgui_init_backend(SDL_Window * sdl_window, SDL_GLContext ctx) {
     imgui_update_theme();
 
     ImGui_ImplSDL2_InitForOpenGL(window, ctx);
-    ImGui_ImplOpenGL3_Init(glsl_version);
+    ImGui_ImplOpenGL2_Init();
 
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, configWindowState?"1":"0");
 }
@@ -657,7 +657,7 @@ int current_project_id;
 
 void saturn_imgui_update() {
     if (!splash_finished) return;
-    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
     
@@ -1086,7 +1086,7 @@ void saturn_imgui_update() {
     GLint last_program;
     glGetIntegerv(GL_CURRENT_PROGRAM, &last_program);
     glUseProgram(0);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
     glUseProgram(last_program);
 
     if (was_camera_frozen && !camera_frozen && saturn_timeline_exists("k_c_camera_pos0")) {

@@ -16,11 +16,11 @@
 #include <SDL2/SDL.h>
 #define GL_GLEXT_PROTOTYPES 1
 
-#ifdef OSX_BUILD
+//#ifdef OSX_BUILD
 #include <SDL2/SDL_opengl.h>
-#else
-#include <SDL2/SDL_opengles2.h>
-#endif
+//#else
+//#include <SDL2/SDL_opengles2.h>
+//#endif
 
 #endif // End of OS-Specific GL defines
 
@@ -232,13 +232,16 @@ static void gfx_sdl_init(const char *window_title) {
     //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     //SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
-    int xpos = SDL_WINDOWPOS_CENTERED;
-    int ypos = SDL_WINDOWPOS_CENTERED;
+    int xpos = SDL_WINDOWPOS_UNDEFINED;
+    int ypos = SDL_WINDOWPOS_UNDEFINED;
+
+    SDL_DisplayMode mode;
+    SDL_GetDesktopDisplayMode(0, &mode);
 
     wnd = SDL_CreateWindow(
         window_title,
-        xpos, ypos, configWindow.w, configWindow.h,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+        xpos, ypos, mode.w, mode.h,
+        SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
     );
     ctx = SDL_GL_CreateContext(wnd);
 

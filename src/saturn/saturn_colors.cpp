@@ -73,11 +73,13 @@ bool support_color_codes = true;
 /* Global toggle for Saturn's SPARK extension. False by default */
 bool support_spark = true;
 
-void PasteGameShark(std::string GameShark) {
-    std::istringstream f(GameShark);
-    std::string line;
-        
-    while (std::getline(f, line)) {
+extern std::vector<std::string> split(std::string, char);
+
+void PasteGameShark(std::string gscode) {
+    std::vector<std::string> lines = split(gscode, '\n');
+
+    for (int i = 0; i < lines.size(); i++) {
+        std::string line = lines[i];
         if (line.rfind("81", 0) == 0) {
             int address = std::stoi(line.substr(2, 6), 0, 16);
             int value1 = std::stoi(line.substr(9, 2), 0, 16);
