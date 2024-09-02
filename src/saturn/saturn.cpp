@@ -1218,6 +1218,11 @@ unsigned char saturn_splash_screen_bg_data[] = {
 #include "splashdata/background.h"
 };
 
+SDL_Texture* saturn_splash_screen_rom_prompt = nullptr;
+unsigned char saturn_splash_screen_rom_prompt_data[] = {
+#include "splashdata/rom_prompt.h"
+};
+
 int load_delay = 2;
 
 struct Star {
@@ -1226,23 +1231,23 @@ struct Star {
 
 Star stars[NUM_STARS];
 
+SDL_Texture* saturn_load_splash_img(SDL_Renderer* renderer, unsigned char* data, int len, int* w, int* h) {
+    int width, height;
+    unsigned char* image_data = stbi_load_from_memory(data, len, &width, &height, nullptr, STBI_rgb_alpha);
+    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(image_data, width, height, 32, width * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    stbi_image_free(image_data);
+    if (w) *w = width;
+    if (h) *h = height;
+    return texture;
+}
+
+#define splashtex(id, width, height) if (saturn_splash_screen_##id == nullptr) saturn_splash_screen_##id = saturn_load_splash_img(renderer, saturn_splash_screen_##id##_data, sizeof(saturn_splash_screen_##id##_data), width, height);
 void saturn_splash_screen_init(SDL_Renderer* renderer) {
-    if (saturn_splash_screen_banner == nullptr) {
-        int width, height;
-        unsigned char* image_data = stbi_load_from_memory(saturn_splash_screen_banner_data, sizeof(saturn_splash_screen_banner_data), &width, &height, nullptr, STBI_rgb_alpha);
-        SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(image_data, width, height, 32, width * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-        saturn_splash_screen_banner = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-        saturn_splash_screen_banner_width = width;
-        saturn_splash_screen_banner_height = height;
-    }
-    if (saturn_splash_screen_bg == nullptr) {
-        int width, height;
-        unsigned char* image_data = stbi_load_from_memory(saturn_splash_screen_bg_data, sizeof(saturn_splash_screen_bg_data), &width, &height, nullptr, STBI_rgb_alpha);
-        SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(image_data, width, height, 32, width * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-        saturn_splash_screen_bg = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-    }
+    splashtex(banner, &saturn_splash_screen_banner_width, &saturn_splash_screen_banner_height);
+    splashtex(bg, NULL, NULL);
+    splashtex(rom_prompt, NULL, NULL);
     memset(stars, 0, sizeof(Star) * NUM_STARS);
     for (int i = 0; i < NUM_STARS; i++) {
         stars[i] = (Star){ .x = rand() % STAR_WIDTH - STAR_WIDTH / 2, .y = rand() % STAR_HEIGHT - STAR_HEIGHT / 2, .z = (i + 1) * STAR_SPAWN_DISTANCE };
@@ -1257,6 +1262,14 @@ void saturn_splash_screen_update_stars() {
 }
 
 bool saturn_splash_screen_update(SDL_Renderer* renderer) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) exit(0);
+        if (event.type == SDL_DROPFILE) {
+            rom_path = event.drop.file;
+            prompting_for_rom = false;
+        }
+    }
     SDL_Rect rect = (SDL_Rect){
         .x = 0,
         .y = 0,
@@ -1285,14 +1298,12 @@ bool saturn_splash_screen_update(SDL_Renderer* renderer) {
         .h = saturn_splash_screen_banner_height
     };
     SDL_RenderCopy(renderer, saturn_splash_screen_banner, &src, &dst);
+    if (prompting_for_rom) SDL_RenderCopy(renderer, saturn_splash_screen_rom_prompt, &rect, &rect);
     if (!saturn_begin_extract_rom_thread()) {
         if (extraction_progress >= 0) {
-            SDL_Rect rect1 = (SDL_Rect){ .x = 16, .y = 360 - 32, .w = 640 - 32, .h = 16 };
-            SDL_Rect rect2 = (SDL_Rect){ .x = 16, .y = 360 - 32, .w = (640 - 32) * extraction_progress, .h = 16 };
-            SDL_SetRenderDrawColor(renderer, 127, 127, 127, 255);
-            SDL_RenderFillRect(renderer, &rect1);
+            SDL_Rect progress = (SDL_Rect){ .x = 16, .y = 360 - 32, .w = (640 - 32) * extraction_progress, .h = 16 };
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_RenderFillRect(renderer, &rect2);
+            SDL_RenderFillRect(renderer, &progress);
         }
         return false;
     }
