@@ -76,6 +76,7 @@ extern unsigned int configEditorThemeJson;
 extern unsigned int configEditorTextures;
 extern float        camera_fov;
 extern bool         configUnstableFeatures;
+extern unsigned int configWorldsimSteps;
 #ifdef BETTERCAMERA
 extern unsigned int configCameraXSens;
 extern unsigned int configCameraYSens;

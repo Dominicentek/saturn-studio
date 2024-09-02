@@ -149,7 +149,9 @@ struct Object* saturn_camera_object = nullptr;
 bool setting_mario_struct_pos = false;
 
 struct Object (*world_simulation_data)[960] = nullptr;
+u16* world_simulation_seeds = nullptr;
 int world_simulation_frames = 0;
+int world_simulation_prev_frame = 0;
 float world_simulation_curr_frame = 0;
 u16 world_simulation_seed = 0;
 
@@ -167,9 +169,62 @@ void saturn_clear_simulation() {
     if (!world_simulation_data) return;
     memcpy(gObjectPool, world_simulation_data[0], sizeof(*world_simulation_data));
     free(world_simulation_data);
+    free(world_simulation_seeds);
     world_simulation_frames = 0;
     world_simulation_curr_frame = 0;
     world_simulation_data = nullptr;
+}
+
+void saturn_simulation_step(int frame) {
+    simulating_world = true;
+    Vec3f prevMarioStructPos;
+    float prevMarioStructAngle = gMarioState->fAngle;
+    vec3f_copy(prevMarioStructPos, gMarioState->pos);
+    saturn_keyframe_apply("k_mariostruct_x", frame);
+    saturn_keyframe_apply("k_mariostruct_y", frame);
+    saturn_keyframe_apply("k_mariostruct_z", frame);
+    saturn_keyframe_apply("k_mariostruct_angle", frame);
+    gMarioObject->oPosX = gMarioState->pos[0];
+    gMarioObject->oPosY = gMarioState->pos[1];
+    gMarioObject->oPosZ = gMarioState->pos[2];
+    area_update_objects();
+    Gfx* head = gDisplayListHead;
+    geo_process_root(gCurrentArea->unk04, NULL, NULL, 0);
+    gDisplayListHead = head;
+    for (Gfx* gfx : gfxs) {
+        free(gfx);
+    }
+    gfxs.clear();
+    vec3f_copy(gMarioState->pos, prevMarioStructPos);
+    gMarioState->fAngle = prevMarioStructAngle;
+    simulating_world = false;
+}
+
+void saturn_simulation_update() {
+    int prev = world_simulation_prev_frame;
+    int curr = world_simulation_curr_frame;
+    if (prev == curr) return;
+
+    struct GraphNodeObject_sub animdata;
+    memcpy(&animdata, &gMarioObject->header.gfx.unk38, sizeof(animdata));
+
+    int sample_frame_prev = prev / configWorldsimSteps;
+    int sample_frame_curr = curr / configWorldsimSteps;
+    int start_from = prev;
+    if (sample_frame_prev != sample_frame_curr || prev > curr) {
+        start_from = sample_frame_curr * configWorldsimSteps;
+        gRandomSeed16 = world_simulation_seeds[curr];
+        memcpy(gObjectPool, world_simulation_data[sample_frame_curr], sizeof(*world_simulation_data));
+    }
+
+    for (int i = start_from; i < curr; i++) {
+        saturn_simulation_step(i);
+    }
+
+    memcpy(&gMarioObject->header.gfx.unk38, &animdata, sizeof(animdata));
+    gAreaUpdateCounter = world_simulation_curr_frame;
+
+    world_simulation_prev_frame = curr;
 }
 
 void saturn_simulate(int frames) {
@@ -177,33 +232,16 @@ void saturn_simulate(int frames) {
     if (frames <= 0) return;
     simulating_world = true;
     world_simulation_frames = frames;
-    world_simulation_data = (struct Object(*)[960])malloc(sizeof(*world_simulation_data) * frames);
+    world_simulation_data = (struct Object(*)[960])malloc(sizeof(*world_simulation_data) * ceilf(frames / (float)configWorldsimSteps));
+    world_simulation_seeds = (u16*)malloc(sizeof(u16) * ceilf(frames / (float)configWorldsimSteps));
     memcpy(world_simulation_data[0], gObjectPool, sizeof(*world_simulation_data));
     world_simulation_seed = gRandomSeed16;
-    Vec3f prevMarioStructPos;
-    float prevMarioStructAngle = gMarioState->fAngle;
-    vec3f_copy(prevMarioStructPos, gMarioState->pos);
     for (int i = 1; i < frames; i++) {
-        saturn_keyframe_apply("k_mariostruct_x", i);
-        saturn_keyframe_apply("k_mariostruct_y", i);
-        saturn_keyframe_apply("k_mariostruct_z", i);
-        saturn_keyframe_apply("k_mariostruct_angle", i);
-        gMarioObject->oPosX = gMarioState->pos[0];
-        gMarioObject->oPosY = gMarioState->pos[1];
-        gMarioObject->oPosZ = gMarioState->pos[2];
-        area_update_objects();
-        Gfx* head = gDisplayListHead;
-        geo_process_root(gCurrentArea->unk04, NULL, NULL, 0);
-        gDisplayListHead = head;
-        for (Gfx* gfx : gfxs) {
-            free(gfx);
-        }
-        gfxs.clear();
-        memcpy(world_simulation_data[i], gObjectPool, sizeof(*world_simulation_data));
+        saturn_simulation_step(i);
+        if (i % configWorldsimSteps != 0) continue;
+        memcpy(world_simulation_data[i / configWorldsimSteps], gObjectPool, sizeof(*world_simulation_data));
+        world_simulation_seeds[i / configWorldsimSteps] = gRandomSeed16;
     }
-    simulating_world = false;
-    vec3f_copy(gMarioState->pos, prevMarioStructPos);
-    gMarioState->fAngle = prevMarioStructAngle;
 }
 
 extern "C" {
@@ -739,11 +777,7 @@ void saturn_update() {
     if (current_project != "") saturn_load_project((char*)current_project.c_str());
 
     if (world_simulation_data) {
-        struct GraphNodeObject_sub animdata;
-        memcpy(&animdata, &gMarioObject->header.gfx.unk38, sizeof(animdata));
-        memcpy(gObjectPool, world_simulation_data[(int)world_simulation_curr_frame], sizeof(*world_simulation_data));
-        memcpy(&gMarioObject->header.gfx.unk38, &animdata, sizeof(animdata));
-        gAreaUpdateCounter = world_simulation_curr_frame;
+        saturn_simulation_update();
     }
 
     // Autosave

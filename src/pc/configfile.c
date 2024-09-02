@@ -110,6 +110,7 @@ bool         configUnstableFeatures = false;
 unsigned int configEditorThemeJson = 0x00384A4E; // hash of the "moon" string
 unsigned int configEditorTextures = 0;
 float        camera_fov = 50.0f;
+unsigned int configWorldsimSteps = 10;
 #ifdef BETTERCAMERA
 // BetterCamera settings
 unsigned int configCameraXSens   = 50;
@@ -218,6 +219,7 @@ static const struct ConfigOption options[] = {
     {.name = "editor_textures", .type = CONFIG_TYPE_UINT, .uintValue = &configEditorTextures},
     {.name = "unstable_features", .type = CONFIG_TYPE_UINT, .boolValue = &configUnstableFeatures},
     {.name = "default_fov", .type = CONFIG_TYPE_FLOAT, .floatValue = &camera_fov},
+    {.name = "worldsim_steps", .type = CONFIG_TYPE_UINT, .uintValue = &configWorldsimSteps},
     #ifdef BETTERCAMERA
     {.name = "bettercam_enable",     .type = CONFIG_TYPE_BOOL, .boolValue = &configEnableCamera},
     {.name = "bettercam_analog",     .type = CONFIG_TYPE_BOOL, .boolValue = &configCameraAnalog},
