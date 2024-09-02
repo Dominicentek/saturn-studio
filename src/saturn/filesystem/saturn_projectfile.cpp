@@ -196,6 +196,7 @@ bool saturn_project_mario_actor_handler(SaturnFormatStream* stream, int version)
         }
     }
     if (actor->selected_model != -1) {
+        actor->selected_model = -1;
         for (int i = 0; i < model_list.size(); i++) {
             if (model_list[i].Name == modelname) {
                 actor->selected_model = i;
