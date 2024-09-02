@@ -782,14 +782,9 @@ void saturn_imgui_handle_events(SDL_Event * event) {
 
 extern s8 sObjectListUpdateOrder[];
 void for_each_obj(std::function<void(struct Object*)> func) {
-    for (int index, i = 0; (index = sObjectListUpdateOrder[i]) != -1; i++) {
-        struct ObjectNode* list = &gObjectLists[index];
-        struct ObjectNode* curr = list->next;
-        while (list != curr) {
-            struct Object* obj = (struct Object*)curr;
-            func(obj);
-            curr = curr->next;
-        }
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        func(gObjectPool + i);
     }
 }
 

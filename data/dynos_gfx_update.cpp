@@ -109,7 +109,7 @@ void DynOS_Gfx_SwapAnimations(void *aPtr) {
 //
 
 void DynOS_Gfx_Update() {
-    if (gObjectLists) {
+    if (gMarioObject) {
 
         // Loop through all object lists
         MarioActor* _Actor = gMarioActorList;

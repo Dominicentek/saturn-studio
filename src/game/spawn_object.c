@@ -76,25 +76,24 @@ struct LinkedList *unused_try_allocate(struct LinkedList *destList,
  * to the end of destList (doubly linked). Return the object, or NULL if
  * freeList is empty.
  */
-struct Object *try_allocate_object(struct ObjectNode *destList, struct ObjectNode *freeList) {
-    struct ObjectNode *nextObj;
-
-    if ((nextObj = freeList->next) != NULL) {
-        // Remove from free list
-        freeList->next = nextObj->next;
-
-        // Insert at end of destination list
-        nextObj->prev = destList->prev;
-        nextObj->next = destList;
-        destList->prev->next = nextObj;
-        destList->prev = nextObj;
-    } else {
-        return NULL;
+struct Object *try_allocate_object() {
+    struct Object* nextObj = NULL;
+    struct Object* potentialNextObj = NULL;
+    
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].objList == OBJ_LIST_UNIMPORTANT) potentialNextObj = gObjectPool + i;
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) nextObj = gObjectPool + i;
     }
 
-    geo_add_child(&gObjParentGraphNode, &nextObj->gfx.node);
+    if (nextObj == NULL) {
+        if (potentialNextObj == NULL) return NULL;
+        unload_object(potentialNextObj);
+        nextObj = potentialNextObj;
+    }
 
-    return (struct Object *) nextObj;
+    geo_add_child(&gObjParentGraphNode, &nextObj->header.gfx.node);
+
+    return nextObj;
 }
 
 /**
@@ -183,6 +182,8 @@ static void unused_delete_leaf_nodes(struct Object *obj) {
  * Free the given object.
  */
 void unload_object(struct Object *obj) {
+    if (!obj->allocated) return;
+    obj->allocated = 0;
     obj->activeFlags = ACTIVE_FLAG_DEACTIVATED;
     obj->prevObj = NULL;
 
@@ -193,12 +194,11 @@ void unload_object(struct Object *obj) {
     obj->header.gfx.node.flags &= ~GRAPH_RENDER_BILLBOARD;
     obj->header.gfx.node.flags &= ~GRAPH_RENDER_CYLBOARD;
     obj->header.gfx.node.flags &= ~GRAPH_RENDER_ACTIVE;
-
-    deallocate_object(&gFreeObjectList, &obj->header);
 }
 
 void initialize_object(struct Object* obj) {
     obj->activeFlags = ACTIVE_FLAG_ACTIVE | ACTIVE_FLAG_UNK8;
+    obj->allocated = 1;
     obj->parentObj = obj;
     obj->prevObj = NULL;
     obj->collidedObjInteractTypes = 0;
@@ -214,7 +214,6 @@ void initialize_object(struct Object* obj) {
     for (i = 0; i < 0x50; i++) obj->rawData.asS32[i] = 0;
 #endif
 
-    obj->unused1 = 0;
     obj->bhvStackIndex = 0;
     obj->bhvDelayTimer = 0;
 
@@ -258,33 +257,10 @@ void initialize_object(struct Object* obj) {
  * an unimportant object if necessary. If this is not possible, hang using an
  * infinite loop.
  */
-struct Object *allocate_object(struct ObjectNode *objList) {
-    struct Object *obj = try_allocate_object(objList, &gFreeObjectList);
+struct Object *allocate_object() {
+    struct Object *obj = try_allocate_object();
 
-    // The object list is full if the newly created pointer is NULL.
-    // If this happens, we first attempt to unload unimportant objects
-    // in order to finish allocating the object.
-    if (obj == NULL) {
-        // Look for an unimportant object to kick out.
-        struct Object *unimportantObj = find_unimportant_object();
-
-        // If no unimportant object exists, then the object pool is exhausted.
-        if (unimportantObj == NULL) {
-            // We've met with a terrible fate.
-            while (TRUE) {
-            }
-        } else {
-            // If an unimportant object does exist, unload it and take its slot.
-            unload_object(unimportantObj);
-            obj = try_allocate_object(objList, &gFreeObjectList);
-            if (gCurrentObject == obj) {
-                //! Uh oh, the unimportant object was in the middle of
-                //  updating! This could cause some interesting logic errors,
-                //  but I don't know of any unimportant objects that spawn
-                //  other objects.
-            }
-        }
-    }
+    (void)*obj;
 
     // Initialize object fields
 
@@ -324,11 +300,11 @@ struct Object *create_object(const BehaviorScript *bhvScript) {
         objListIndex = OBJ_LIST_DEFAULT;
     }
 
-    objList = &gObjectLists[objListIndex];
-    obj = allocate_object(objList);
+    obj = allocate_object();
 
     obj->curBhvCommand = bhvScript;
     obj->behavior = behavior;
+    obj->objList = objListIndex;
 
     if (objListIndex == OBJ_LIST_UNIMPORTANT) {
         obj->activeFlags |= ACTIVE_FLAG_UNIMPORTANT;
