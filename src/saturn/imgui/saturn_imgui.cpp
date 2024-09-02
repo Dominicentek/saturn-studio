@@ -411,7 +411,7 @@ void imgui_update_theme() {
     style->ScaleAllSizes(SCALE);
 }
 
-int selected_video_format = 0;
+int selected_video_format;
 int videores[] = { 1920, 1080 };
 bool capturing_video = false;
 bool orthographic_mode = false;
@@ -736,6 +736,8 @@ void saturn_imgui_init() {
     saturn_load_project_list();
 
     ffmpeg_installed = is_ffmpeg_installed();
+    if (ffmpeg_installed) selected_video_format = 2; // .mp4
+    else                  selected_video_format = 0; // .png sequence
     saturn_set_video_renderer(selected_video_format);
 }
 
