@@ -50,7 +50,7 @@ extern "C" {
 #include "engine/surface_collision.h"
 }
 
-Array<PackData *> &sDynosPacks = DynOS_Gfx_GetPacks();
+Array<PackData *> &dynos_packs = DynOS_Gfx_GetPacks();
 
 using namespace std;
 
@@ -165,6 +165,7 @@ void OpenModelSelector(MarioActor* actor) {
     } else {
         ImGui::BeginChild("###menu_model_selector", ImVec2(-FLT_MIN, 125), true);
         for (int i = 0; i < model_list.size(); i++) {
+            if (model_list[i].Type != "mario") continue;
             Model model = model_list[i];
             if (model.Active) {
                 bool is_selected = actor->selected_model == i;
@@ -240,7 +241,7 @@ void OpenModelSelector(MarioActor* actor) {
                     ImGui::Separator();
                     ImGui::TextDisabled("%i model pack(s)", model_list.size());
                     if (ImGui::Button(ICON_FK_DOWNLOAD " Refresh Packs###refresh_dynos_packs")) {
-                        sDynosPacks.Clear();
+                        dynos_packs.Clear();
                         DynOS_Opt_Init();
                         std::vector<std::string> model_names = {};
                         MarioActor* actor = gMarioActorList;

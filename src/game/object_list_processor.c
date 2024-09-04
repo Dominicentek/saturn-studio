@@ -496,8 +496,11 @@ void clear_objects(void) {
     stub_behavior_script_2();
     stub_obj_list_processor_1();
 
+    memset(gObjectPool, 0, sizeof(gObjectPool));
+
     for (i = 0; i < OBJECT_POOL_CAPACITY; i++) {
         gObjectPool[i].activeFlags = ACTIVE_FLAG_DEACTIVATED;
+        gObjectPool[i].allocated = 0;
         geo_reset_object_node(&gObjectPool[i].header.gfx);
     }
 

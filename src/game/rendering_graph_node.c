@@ -18,6 +18,7 @@
 #include "object_list_processor.h"
 #include "behavior_data.h"
 #include "saturn/imgui/saturn_imgui.h"
+#include "saturn/imgui/saturn_imgui_machinima.h"
 
 /**
  * This file contains the code that processes the scene graph for rendering.
@@ -1300,6 +1301,9 @@ static void geo_process_object_parent(struct GraphNodeObjectParent *node) {
         if (!obj) continue;
         if (!obj->header.gfx.sharedChild) continue;
         geo_process_object(obj);
+    }
+    if (override_level && override_level_geolayout) {
+        geo_process_node_and_siblings(override_level_geolayout);
     }
 }
 
