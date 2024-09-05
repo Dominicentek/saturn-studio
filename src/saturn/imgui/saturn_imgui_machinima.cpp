@@ -387,6 +387,14 @@ void imgui_machinima_quick_options() {
                         gCurrentArea->terrainData = override_level_collision;
                         load_area_terrain(gCurrAreaIndex, gCurrentArea->terrainData, gCurrentArea->surfaceRooms, NULL);
                     }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::BeginTooltip();
+                        ImGui::TextDisabled("%s - by", model.Version.c_str());
+                        ImGui::SameLine();
+                        ImGui::Text("%s", model.Author.c_str());
+                        ImGui::Text("%s", model.Description.c_str());
+                        ImGui::EndTooltip();
+                    }
                 }
                 ImGui::EndChild();
             }
