@@ -1305,20 +1305,20 @@ void saturn_imgui_update() {
                 if (ImGui::Selectable("8K 16:9"))        { videores[0] = 7680; videores[1] = 4320; }
                 ImGui::EndCombo();
             }
-            bool fps60_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS);
+            bool sixty_fps_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS);
             bool transparency_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || orthographic_mode;
             ImGui::InputInt2("Resolution", videores);
             ImGui::Checkbox("Preview Aspect Ratio", &keep_aspect_ratio);
             ImGui::Checkbox("Anti-aliasing", &video_antialias);
-            ImGui_ConditionalCheckbox("60 FPS", &sixty_fps_enabled, fps60_supported && configFps60);
-            ImGui_ConditionalCheckbox("Transparency", &transparency_enabled, transparency_supported);
-            if (!fps60_supported) {
+            ImGui::Checkbox("Transparency", &transparency_enabled);
+            ImGui_ConditionalCheckbox("60 FPS", &sixty_fps_enabled, sixty_fps_supported && configFps60);
+            if (!sixty_fps_supported) {
                 ImGui::Text(ICON_FK_EXCLAMATION_TRIANGLE " This video format doesn't");
-                ImGui::Text("support 60 FPS framerate");
+                ImGui::Text("support 60 FPS framerate.");
             }
             if (!transparency_supported) {
                 ImGui::Text(ICON_FK_EXCLAMATION_TRIANGLE " This video format doesn't");
-                ImGui::Text("support transparency");
+                ImGui::Text("support transparency.");
             }
             int curr_projection = request_ortho_mode == 0 ? orthographic_mode : request_ortho_mode - 1;
             if (ImGui::Combo("Projection", &curr_projection,
