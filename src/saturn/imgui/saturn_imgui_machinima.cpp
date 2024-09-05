@@ -8,6 +8,7 @@
 #include <map>
 #include <fstream>
 
+#include "engine/graph_node.h"
 #include "game/area.h"
 #include "saturn/libs/imgui/imgui.h"
 #include "saturn/libs/imgui/imgui_internal.h"
@@ -47,6 +48,7 @@ extern "C" {
 #include "include/behavior_data.h"
 #include "game/object_helpers.h"
 #include "game/object_list_processor.h"
+#include "engine/surface_load.h"
 }
 
 #include "saturn/saturn_json.h"
@@ -212,6 +214,81 @@ Gfx* geo_switch_override_model(s32 callContext, struct GraphNode *node, UNUSED M
     return NULL;
 }
 
+#define C0(pos, width) ((dl->words.w0 >> (pos)) & ((1U << width) - 1))
+#define C1(pos, width) ((dl->words.w1 >> (pos)) & ((1U << width) - 1))
+void append_collision_data(Gfx* dl, int* cur, int* nvt, std::map<void*, int>* off, std::vector<float>* vtx, std::vector<int>* tri) {
+    bool running = true;
+    while (running) {
+        int opcode = dl->words.w0 >> 24;
+        switch (opcode) {
+            case G_DL: {
+                append_collision_data((Gfx*)dl->words.w1, cur, nvt, off, vtx, tri);
+            } break;
+            case G_VTX: {
+                Vtx* verts = (Vtx*)dl->words.w1;
+                if (off->find(verts) == off->end()) {
+                    off->insert({ verts, *nvt });
+                    int num = C0(12, 8);
+                    *nvt += num;
+                    for (int i = 0; i < num; i++) {
+                        vtx->push_back(verts[i].v.ob[0]);
+                        vtx->push_back(verts[i].v.ob[1]);
+                        vtx->push_back(verts[i].v.ob[2]);
+                    }
+                }
+                *cur = (*off)[verts];
+            } break;
+            case G_TRI1: {
+                tri->push_back(C0(16, 8) / 2 + *cur);
+                tri->push_back(C0( 8, 8) / 2 + *cur);
+                tri->push_back(C0( 0, 8) / 2 + *cur);
+            } break;
+            case G_TRI2: {
+                tri->push_back(C0(16, 8) / 2 + *cur);
+                tri->push_back(C0( 8, 8) / 2 + *cur);
+                tri->push_back(C0( 0, 8) / 2 + *cur);
+                tri->push_back(C1(16, 8) / 2 + *cur);
+                tri->push_back(C1( 8, 8) / 2 + *cur);
+                tri->push_back(C1( 0, 8) / 2 + *cur);
+            } break;
+            case G_ENDDL: {
+                running = false;
+            } break;
+        }
+        dl++;
+    }
+}
+
+Collision* create_collision_mesh(struct GraphNode* node) {
+    if (node == NULL) return NULL;
+    if (node->type == GRAPH_NODE_TYPE_DISPLAY_LIST) {
+        struct GraphNodeDisplayList* dlnode = (struct GraphNodeDisplayList*)node;
+        Gfx* dl = (Gfx*)dlnode->displayList;
+        std::vector<float>   vtx = {};
+        std::vector<int>     tri = {};
+        std::map<void*, int> off = {};
+        int                  nvt = 0;
+        int                  cur = 0;
+        append_collision_data(dl, &cur, &nvt, &off, &vtx, &tri);
+        Collision* coll = (Collision*)malloc(sizeof(s16) * (6 + vtx.size() + tri.size()));
+        int ptr = 0;
+        coll[ptr++] = TERRAIN_LOAD_VERTICES;
+        coll[ptr++] = vtx.size() / 3;
+        for (int i = 0; i < vtx.size(); i++) {
+            coll[ptr++] = vtx[i];
+        }
+        coll[ptr++] = SURFACE_DEFAULT;
+        coll[ptr++] = tri.size() / 3;
+        for (int i = 0; i < tri.size(); i++) {
+            coll[ptr++] = tri[i];
+        }
+        coll[ptr++] = TERRAIN_LOAD_CONTINUE;
+        coll[ptr++] = TERRAIN_LOAD_END;
+        return coll;
+    }
+    return create_collision_mesh(node->children);
+}
+
 void smachinima_imgui_init() {
     Cheats.EnableCheats = true;
     Cheats.GodMode = true;
@@ -285,7 +362,13 @@ void imgui_machinima_quick_options() {
         }
 
         if (gCurrLevelNum == LEVEL_SA) {
-            ImGui::Checkbox("Load Level Model", &override_level);
+            if (ImGui::Checkbox("Load Level Model", &override_level)) {
+                gCurrentArea->terrainData = 
+                    override_level && override_level_collision ?
+                        override_level_collision :
+                        gAreas[gCurrAreaIndex].terrainDataOrig;
+                load_area_terrain(gCurrAreaIndex, gCurrentArea->terrainData, gCurrentArea->surfaceRooms, NULL);
+            }
             if (override_level) {
                 Array<PackData*>& sDynosPacks = DynOS_Gfx_GetPacks();
                 ImGui::BeginChild("##level_model_select", ImVec2(0, 120), ImGuiChildFlags_Border);
@@ -295,7 +378,14 @@ void imgui_machinima_quick_options() {
                     GraphNode* geo = (GraphNode*)DynOS_Geo_GetGraphNode((*(gfx->mGeoLayouts.end() - 1))->mData, true);
                     bool selected = geo == override_level_geolayout;
                     if (ImGui::Selectable(model.Name.c_str(), selected)) {
+                        if (override_level_collision) {
+                            free(override_level_collision);
+                            override_level_collision = NULL;
+                        }
                         override_level_geolayout = geo;
+                        override_level_collision = create_collision_mesh(geo);
+                        gCurrentArea->terrainData = override_level_collision;
+                        load_area_terrain(gCurrAreaIndex, gCurrentArea->terrainData, gCurrentArea->surfaceRooms, NULL);
                     }
                 }
                 ImGui::EndChild();
