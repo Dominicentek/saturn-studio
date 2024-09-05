@@ -607,6 +607,7 @@ void imgui_machinima_quick_options() {
 }
 
 static char animSearchTerm[128];
+uint64_t enabled_categories = UINT64_MAX;
 
 bool case_insensitive_contains(std::string base, std::string substr) {
     std::string lower_b = base;
@@ -621,11 +622,22 @@ bool case_insensitive_contains(std::string base, std::string substr) {
 std::vector<int> get_sorted_anim_list(MarioActor* actor) {
     std::vector<int> anim_list = {};
     std::vector<int> fav_anim_list = {};
-    for (int i = saturn_animation_obj_ranges[actor->obj_model].first; i < saturn_animation_obj_ranges[actor->obj_model].second; i++) {
-        if (!case_insensitive_contains(saturn_animation_names[i], animSearchTerm)) continue;
-        bool contains = std::find(favorite_anims.begin(), favorite_anims.end(), i) != favorite_anims.end();
-        if (contains) fav_anim_list.push_back(i);
-        else anim_list.push_back(i);
+    std::vector<int> avail_anims = saturn_animation_categories[actor->obj_model]["_"];
+    auto categories = saturn_animation_categories[actor->obj_model];
+    int iter = 0;
+    printf("\n");
+    for (auto entry : categories) {
+        printf("%d\n", iter);
+        if (!(enabled_categories & (1 << iter++))) continue;
+        for (int i = 0; i < entry.second.size(); i++) {
+            avail_anims.push_back(entry.second[i]);
+        }
+    }
+    for (int anim : avail_anims) {
+        if (!case_insensitive_contains(saturn_animation_names[anim], animSearchTerm)) continue;
+        bool contains = std::find(favorite_anims.begin(), favorite_anims.end(), anim) != favorite_anims.end();
+        if (contains) fav_anim_list.push_back(anim);
+        else anim_list.push_back(anim);
     }
     std::reverse(fav_anim_list.begin(), fav_anim_list.end());
     for (int fav : fav_anim_list) {
@@ -766,6 +778,20 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
     if (ImGui::BeginTabBar("###anim_tab_bar")) {
         if (ImGui::BeginTabItem("SM64")) {
             ImGui::PushItemWidth(316);
+            if (ImGui::BeginCombo("##anim_filters", "Filters...")) {
+                auto filters = saturn_animation_categories[actor->obj_model];
+                int iter = 0;
+                for (auto entry : filters) {
+                    if (entry.first == "_") continue;
+                    bool checked = enabled_categories & (1 << iter);
+                    if (ImGui::Checkbox(entry.first.c_str(), &checked)) {
+                        if (checked) enabled_categories |= (1 << iter);
+                        else enabled_categories &= ~(1 << iter);
+                    }
+                    iter++;
+                }
+                ImGui::EndCombo();
+            }
             ImGui::InputTextWithHint("###anim_search", ICON_FK_SEARCH " Search...", animSearchTerm, 128);
             if (ImGui::BeginChild("###anim_box_child", ImVec2(316, 100), true)) {
                 std::vector<int> anim_order = get_sorted_anim_list(actor);
