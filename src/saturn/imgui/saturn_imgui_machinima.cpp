@@ -625,9 +625,7 @@ std::vector<int> get_sorted_anim_list(MarioActor* actor) {
     std::vector<int> avail_anims = saturn_animation_categories[actor->obj_model]["_"];
     auto categories = saturn_animation_categories[actor->obj_model];
     int iter = 0;
-    printf("\n");
     for (auto entry : categories) {
-        printf("%d\n", iter);
         if (!(enabled_categories & (1 << iter++))) continue;
         for (int i = 0; i < entry.second.size(); i++) {
             avail_anims.push_back(entry.second[i]);
