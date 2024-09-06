@@ -62,6 +62,7 @@ void saturn_file_browser_tree_node_end() {
 void saturn_file_browser_scan_directory_internal(std::filesystem::path dir, bool recursive, FileBrowserEntry* currfolder) {
     std::vector<std::string> dirs = {};
     std::vector<std::string> files = {};
+    if (!std::filesystem::exists(dir)) return;
     for (const auto& entry : std::filesystem::directory_iterator(dir)) {
         std::filesystem::path path = entry.path();
         if (std::filesystem::is_directory(path)) {

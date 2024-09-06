@@ -387,12 +387,12 @@ void imgui_update_theme() {
     }
 
     // backwards compatibility with older theme settings
-    if (configEditorTheme == 0) editor_theme = "legacy";
-    else if (configEditorTheme == 1) editor_theme = "moon";
+    editor_theme = "legacy";
+    if (configEditorTheme == 1) editor_theme = "moon";
     else if (configEditorTheme == 2) editor_theme = "halflife";
     else if (configEditorTheme == 3) editor_theme = "moviemaker";
     else if (configEditorTheme == 4) editor_theme = "dear";
-    else {
+    else if (std::filesystem::exists("dynos/themes")) {
         for (const auto& entry : std::filesystem::directory_iterator("dynos/themes")) {
             std::filesystem::path path = entry.path();
             if (path.extension().string() != ".json") continue;
@@ -654,6 +654,7 @@ void saturn_imgui_init_backend(SDL_Window * sdl_window, SDL_GLContext ctx) {
 }
 
 void saturn_load_themes() {
+    if (!std::filesystem::exists("dynos/themes")) return;
     for (const auto& entry : std::filesystem::directory_iterator("dynos/themes")) {
         std::filesystem::path path = entry.path();
         if (path.extension().string() != ".json") continue;
