@@ -326,6 +326,9 @@ void split_skyboxes() {
     for (auto entry : std::filesystem::directory_iterator(joined_skyboxes)) {
         split_skybox(entry.path());
     }
+    if (!std::filesystem::exists("dynos/textures")) {
+        std::filesystem::create_directory("dynos/textures");
+    }
     for (auto texture_pack : std::filesystem::directory_iterator("dynos/textures")) {
         std::filesystem::path path = texture_pack.path() / "textures" / "skyboxes" / "full";
         if (!std::filesystem::exists(path)) continue;
