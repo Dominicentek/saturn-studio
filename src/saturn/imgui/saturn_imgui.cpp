@@ -393,8 +393,9 @@ void imgui_update_theme() {
     else if (configEditorTheme == 2) editor_theme = "halflife";
     else if (configEditorTheme == 3) editor_theme = "moviemaker";
     else if (configEditorTheme == 4) editor_theme = "dear";
-    else if (fs::exists(std::string(sys_user_path()) + "dynos/themes")) {
-        for (const auto& entry : fs::directory_iterator(std::string(sys_user_path()) + "dynos/themes")) {
+    fs::path dynos_themes_dir_path = fs::path(std::string(sys_user_path())) / "dynos" / "themes";
+    else if (fs::exists(dynos_themes_dir_path) {
+        for (const auto& entry : fs::directory_iterator(dynos_themes_dir_path) {
             fs::path path = entry.path();
             if (path.extension().string() != ".json") continue;
             std::string name = path.filename().string();
@@ -660,8 +661,9 @@ void saturn_imgui_init_backend(SDL_Window * sdl_window, SDL_GLContext ctx) {
 }
 
 void saturn_load_themes() {
-    if (!fs::exists(std::string(sys_user_path()) + "dynos/themes")) return;
-    for (const auto& entry : fs::directory_iterator(std::string(sys_user_path()) + "dynos/themes")) {
+    fs::path dynos_themes_dir_path = fs::path(std::string(sys_user_path())) / "dynos" / "themes";
+    if (!fs::exists(dynos_themes_dir_path) return;
+    for (const auto& entry : fs::directory_iterator(dynos_themes_dir_path) {
         fs::path path = entry.path();
         if (path.extension().string() != ".json") continue;
         std::string id = path.filename().string();
