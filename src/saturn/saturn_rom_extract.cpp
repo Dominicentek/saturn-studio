@@ -329,7 +329,7 @@ void split_skyboxes() {
     for (auto entry : fs::directory_iterator(joined_skyboxes)) {
         split_skybox(entry.path());
     }
-    fs::path dynos_texture_path = fs::path(sys_user_path()) / "dynos/textures";
+    fs::path dynos_texture_path = fs::path(sys_user_path()) / "dynos/textures");
     if (!fs::exists(dynos_texture_path) {
         fs::create_directory(dynos_texture_path);
     }
