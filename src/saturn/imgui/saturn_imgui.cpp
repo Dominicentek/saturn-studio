@@ -559,7 +559,7 @@ void saturn_imgui_stop_capture() {
 }
 
 bool saturn_imgui_is_capturing_transparent_video() {
-    return capturing_video && transparency_enabled && (video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY);
+    return capturing_video && transparency_enabled && ((video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || !keyframe_playing);
 }
 
 void saturn_imgui_set_frame_buffer(void* fb, bool do_capture) {
