@@ -1,7 +1,6 @@
 #include "saturn_imgui_file_browser.h"
 
 #include <string>
-#include <filesystem>
 #include <map>
 #include <vector>
 #include <algorithm>
@@ -40,12 +39,12 @@ public:
 FileBrowserEntry root = FileBrowserEntry("root", true, nullptr);
 FileBrowserEntry* curr = &root;
 int browser_height = 150;
-std::filesystem::path selected_path;
+fs_relative::path selected_path;
 std::vector<std::string> extension_filters = {};
 std::map<std::string, char*> search_terms = {};
 std::map<std::string, std::string> selected_paths = {};
-std::map<std::filesystem::path, FileBrowserEntry*> scanned_paths = {};
-std::filesystem::path last_scanned_path;
+std::map<fs::path, FileBrowserEntry*> scanned_paths = {};
+fs::path last_scanned_path;
 
 void saturn_file_browser_item(std::string item) {
     curr->add_file(item);
@@ -59,13 +58,13 @@ void saturn_file_browser_tree_node_end() {
     curr = curr->parent();
 }
 
-void saturn_file_browser_scan_directory_internal(std::filesystem::path dir, bool recursive, FileBrowserEntry* currfolder) {
+void saturn_file_browser_scan_directory_internal(fs::path dir, bool recursive, FileBrowserEntry* currfolder) {
     std::vector<std::string> dirs = {};
     std::vector<std::string> files = {};
-    if (!std::filesystem::exists(dir)) return;
-    for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-        std::filesystem::path path = entry.path();
-        if (std::filesystem::is_directory(path)) {
+    if (!fs::exists(dir)) return;
+    for (const auto& entry : fs::directory_iterator(dir)) {
+        fs::path path = entry.path();
+        if (fs::is_directory(path)) {
             if (!recursive) continue;
             dirs.push_back(path.filename().string());
             continue;
@@ -97,7 +96,7 @@ void saturn_file_browser_scan_directory_internal(std::filesystem::path dir, bool
     }
 }
 
-void saturn_file_browser_scan_directory(std::filesystem::path dir, bool recursive) {
+void saturn_file_browser_scan_directory(fs::path dir, bool recursive) {
     last_scanned_path = dir;
     FileBrowserEntry* entry;
     if (scanned_paths.find(dir) != scanned_paths.end()) entry = scanned_paths[dir];
@@ -109,7 +108,7 @@ void saturn_file_browser_scan_directory(std::filesystem::path dir, bool recursiv
     curr->merge(entry);
 }
 
-void saturn_file_browser_rescan_directory(std::filesystem::path dir, bool recursive) {
+void saturn_file_browser_rescan_directory(fs::path dir, bool recursive) {
     if (scanned_paths.find(dir) != scanned_paths.end()) {
         free(scanned_paths[dir]);
         scanned_paths.erase(dir);
@@ -194,6 +193,6 @@ bool saturn_file_browser_show_tree(std::string id) {
     return result;
 }
 
-std::filesystem::path saturn_file_browser_get_selected() {
+fs_relative::path saturn_file_browser_get_selected() {
     return selected_path;
 }

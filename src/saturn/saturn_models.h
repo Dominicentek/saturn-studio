@@ -7,8 +7,11 @@
 #ifdef __cplusplus
 #include <string>
 #include <vector>
-#include <filesystem>
 #include "saturn/saturn_textures.h"
+
+extern "C" {
+#include "pc/platform.h"
+}
 
 class Model {
     public:
@@ -34,8 +37,8 @@ class Model {
             // Always enabled for non-model Mario
             if (this->DynOSId == -1) return (true);
             else {
-                if (!std::filesystem::is_directory(this->FolderPath + "/expressions/eyes") &&
-                    !std::filesystem::is_directory(this->FolderPath + "/expressions/eye"))
+                if (!fs::is_directory(this->FolderPath + "/expressions/eyes") &&
+                    !fs::is_directory(this->FolderPath + "/expressions/eye"))
                         return (this->Active && this->CustomEyeSupport);
             }
             return false;
@@ -64,8 +67,8 @@ class Model {
         bool HasColorCodeFolder() {
             return (this->Active &&
                     this->ColorCodeSupport && (
-                        std::filesystem::is_directory(this->FolderPath + "/colorcodes") ||
-                        std::filesystem::exists(this->FolderPath + "/default.gs"))
+                        fs::is_directory(this->FolderPath + "/colorcodes") ||
+                        fs::exists(this->FolderPath + "/default.gs"))
                     );
         }
 

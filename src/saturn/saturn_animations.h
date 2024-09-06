@@ -7,7 +7,6 @@
 #ifdef __cplusplus
 #include <string>
 #include <vector>
-#include <filesystem>
 #include <PR/ultratypes.h>
 
 extern std::string current_canim_name;

@@ -22,15 +22,14 @@ extern "C" {
 #include "game/camera.h"
 #include "game/level_update.h"
 #include "sm64.h"
+#include "pc/platform.h"
 }
 
 using namespace std;
 #include <dirent.h>
-#include <filesystem>
 #include <fstream>
 #include <assert.h>
 #include <stdlib.h>
-namespace fs = std::filesystem;
 #include "pc/fs/fs.h"
 
 #include "saturn/saturn_json.h"
@@ -63,8 +62,11 @@ extern "C" {
 void saturn_load_anim_folder(string path, int* index) {
     canim_array.clear();
 
+    // For AppImage
+    std::string original_anim_dir_path = std::string(sys_user_path()) + "/dynos/anims/";
+
     // If anim folder is misplaced
-    if (!fs::exists("dynos/anims/"))
+    if (!fs::exists(original_anim_dir_path))
         return;
 
     // Go back a subfolder
@@ -72,14 +74,14 @@ void saturn_load_anim_folder(string path, int* index) {
         // Only go back if the previous directory actually exists
         if (previous_anim_paths.size() < 1 || !fs::exists(previous_anim_paths[previous_anim_paths.size() - 2])) {
             path = "";
-            current_anim_dir_path = "dynos/anims/";
+            current_anim_dir_path = original_anim_dir_path;
             previous_anim_paths.clear();
         } else {
             current_anim_dir_path = previous_anim_paths[previous_anim_paths.size() - 2];
             previous_anim_paths.pop_back();
         }
     }
-    if (path == "") current_anim_dir_path = "dynos/anims/";
+    if (path == "") current_anim_dir_path = original_anim_dir_path;
 
     // only update current path if folder exists
     if (fs::is_directory(current_anim_dir_path + path) && path != "../") {
@@ -87,7 +89,7 @@ void saturn_load_anim_folder(string path, int* index) {
         current_anim_dir_path = current_anim_dir_path + path;
     }
 
-    if (current_anim_dir_path != "dynos/anims/") {
+    if (current_anim_dir_path != original_anim_dir_path) {
         canim_array.push_back("../");
     }
 
@@ -207,10 +209,10 @@ void saturn_read_mcomp_animation(MarioActor* actor, string anim_path) {
     }*/
 
     CustomAnim anim;
-    std::filesystem::path path = anim_path;
+    fs::path path = anim_path;
     if (path.extension().string() == ".panim") {
         printf("reading as panim\n");
-        int length = std::filesystem::file_size(path);
+        int length = fs::file_size(path);
         unsigned char* data = (unsigned char*)malloc(length);
         file.read((char*)data, length);
         char name[33], author[33];

@@ -3,7 +3,6 @@
 #include "saturn/libs/portable-file-dialogs.h"
 
 #include <algorithm>
-#include <filesystem>
 #include <string>
 #include "GL/glew.h"
 
@@ -107,7 +106,7 @@ void ShowTextureContextMenu(Expression* expression, TexturePath texture, int id)
         }
         // Label
         if (ImGui::Selectable(("%s/", texture.FileName.c_str()), false)) {
-            open_directory(std::string(sys_exe_path()) + "/" + texture.ParentPath() + "/");
+            open_directory(std::string(sys_user_path()) + "/" + texture.ParentPath() + "/");
             ImGui::CloseCurrentPopup();
         }
         imgui_bundled_tooltip(("/%s", texture.FilePath).c_str());
@@ -141,9 +140,9 @@ void OpenExpressionSelector(MarioActor* actor) {
         saturn_file_browser_height(150);
         if (saturn_file_browser_show("eyes")) {
             for (int i = 0; i < actor->model.Expressions[0].Textures.size(); i++) {
-                std::filesystem::path path = actor->model.Expressions[0].Textures[i].FilePath;
-                std::filesystem::path base = actor->model.Expressions[0].FolderPath;
-                if (std::filesystem::relative(path, base) == saturn_file_browser_get_selected()) {
+                fs_relative::path path = actor->model.Expressions[0].Textures[i].FilePath;
+                fs_relative::path base = actor->model.Expressions[0].FolderPath;
+                if (fs_relative::relative(path, base) == saturn_file_browser_get_selected()) {
                     actor->model.Expressions[0].CurrentIndex = i;
                     break;
                 }
@@ -188,9 +187,9 @@ void OpenExpressionSelector(MarioActor* actor) {
                     saturn_file_browser_scan_directory(actor->model.Expressions[i].FolderPath);
                     if (saturn_file_browser_show_tree("expr_" + std::to_string(i))) {
                         for (int j = 0; j < actor->model.Expressions[i].Textures.size(); j++) {
-                            std::filesystem::path path = actor->model.Expressions[i].Textures[j].FilePath;
-                            std::filesystem::path base = actor->model.Expressions[i].FolderPath;
-                            if (std::filesystem::relative(path, base) == saturn_file_browser_get_selected()) {
+                            fs_relative::path path = actor->model.Expressions[i].Textures[j].FilePath;
+                            fs_relative::path base = actor->model.Expressions[i].FolderPath;
+                            if (fs_relative::relative(path, base) == saturn_file_browser_get_selected()) {
                                 actor->model.Expressions[i].CurrentIndex = j;
                                 break;
                             }

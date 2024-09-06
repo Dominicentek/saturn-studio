@@ -18,6 +18,7 @@ extern bool prompting_for_rom;
 
 extern "C" {
 #endif
+    int copy_custom_assets(void);
     int saturn_extract_rom(int type);
 #ifdef __cplusplus
 }

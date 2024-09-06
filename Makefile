@@ -33,6 +33,9 @@ OSX_BUILD ?= 0
 # Enable -no-pie linker option
 NO_PIE ?= 1
 
+# Enable ROM file picker
+FILE_PICKER ?= 0
+
 # Specify the target you are building for, TARGET_BITS=0 means native
 TARGET_ARCH ?= native
 TARGET_BITS ?= 0
@@ -329,6 +332,10 @@ SRC_DIRS += src/saturn/libs/imgui
 SRC_DIRS += src/saturn/filesystem
 SRC_DIRS += src/saturn/cmd
 
+ifeq ($(FILE_PICKER),1)
+  SRC_DIRS += src/pc/gtk
+endif
+
 BIN_DIRS := bin bin/$(VERSION)
 
 ULTRA_SRC_DIRS := lib/src lib/src/math
@@ -531,6 +538,12 @@ else
   LD := $(CXX)
 endif
 
+ifeq ($(FILE_PICKER),1)
+  BACKEND_CFLAGS += -DGDK_VERSION_MIN_REQUIRED=GDK_VERSION_4_10
+  INCLUDE_CFLAGS += $(shell pkg-config --cflags gtk4)
+  BACKEND_LDFLAGS += $(shell pkg-config --libs gtk4)
+endif
+
 ifeq ($(WINDOWS_BUILD),1) # fixes compilation in MXE on Linux and WSL
   CPP := cpp -P
   OBJCOPY := objcopy
@@ -631,11 +644,6 @@ endif
 
 CFLAGS += -Wno-error=narrowing -Wno-narrowing
 
-
-# Saturn Enable filesystem library and C++17
-CXXFLAGS := -std=c++17
-LDFLAGS += -lstdc++fs
-
 CC_CHECK += -DGIT_HASH=\"$(GIT_HASH)\"
 CFLAGS   += -DGIT_HASH=\"$(GIT_HASH)\"
 
@@ -703,6 +711,12 @@ ifeq ($(LEGACY_GL),1)
   CFLAGS += -DLEGACY_GL
 endif
 
+# Enable ROM file picker GUI
+ifeq ($(FILE_PICKER),1)
+  CC_CHECK += -DFILE_PICKER
+  CFLAGS += -DFILE_PICKER
+endif
+
 # Load external textures
 ifeq ($(EXTERNAL_DATA),1)
   CC_CHECK += -DEXTERNAL_DATA -DFS_BASEDIR="\"$(BASEDIR)\""
@@ -752,6 +766,9 @@ else
 endif # End of LDFLAGS
 
 LDFLAGS += -lstdc++
+# Saturn Enable filesystem library and C++17
+CXXFLAGS := -std=c++17
+LDFLAGS += -lstdc++fs
 
 # icon
 ifeq ($(WINDOWS_BUILD),1)

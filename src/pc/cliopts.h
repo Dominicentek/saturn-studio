@@ -5,12 +5,14 @@
 
 struct PCCLIOptions  {
     unsigned int SkipIntro;
+    unsigned int SkipGreeter;
     unsigned int FullScreen;
     unsigned int PoolSize;
     unsigned int SyncFrames;
     unsigned int ExtractOnly;
     char ConfigFile[SYS_MAX_PATH];
     char SavePath[SYS_MAX_PATH];
+    char RomPath[SYS_MAX_PATH];
     char GameDir[SYS_MAX_PATH];
 };
 

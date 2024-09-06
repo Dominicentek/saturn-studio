@@ -123,10 +123,10 @@ void schroma_imgui_update() {
         if (ImGui::Button("Browse")) {
             std::vector<std::string> str = choose_file_dialog("Open Image", { "PNG image", "*.png", "All Files", "*" }, false);
             if (str.size() != 0) {
-                std::filesystem::path dest = std::filesystem::path(sys_user_path()) / "res" / "gfx" / "_IMAGEREF.rgba32.png";
-                if (std::filesystem::exists(dest)) std::filesystem::remove(dest);
-                std::filesystem::copy_file(str[0], dest);
-                imageref_filename = std::filesystem::path(str[0]).filename().string();
+                fs::path dest = fs::path(sys_user_path()) / "res" / "gfx" / "_IMAGEREF.rgba32.png";
+                if (fs::exists(dest)) fs::remove(dest);
+                fs::copy_file(str[0], dest);
+                imageref_filename = fs::path(str[0]).filename().string();
                 imageref.loaded = true;
                 int c;
                 unsigned char* img = pngutils_read_png(str[0].c_str(), &imageref.width, &imageref.height, &c, 4);
