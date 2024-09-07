@@ -389,11 +389,11 @@ void imgui_update_theme() {
 
     // backwards compatibility with older theme settings
     editor_theme = "legacy";
+    fs::path dynos_themes_dir_path = fs::path(std::string(sys_user_path())) / "dynos" / "themes";
     if (configEditorTheme == 1) editor_theme = "moon";
     else if (configEditorTheme == 2) editor_theme = "halflife";
     else if (configEditorTheme == 3) editor_theme = "moviemaker";
     else if (configEditorTheme == 4) editor_theme = "dear";
-    fs::path dynos_themes_dir_path = fs::path(std::string(sys_user_path())) / "dynos" / "themes";
     else if (fs::exists(dynos_themes_dir_path)) {
         for (const auto& entry : fs::directory_iterator(dynos_themes_dir_path)) {
             fs::path path = entry.path();
