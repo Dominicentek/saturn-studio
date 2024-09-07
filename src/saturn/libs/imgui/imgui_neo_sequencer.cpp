@@ -193,6 +193,7 @@ namespace ImGui {
 		
 		if (IsItemHovered()) {
 			if (IsMouseDown(ImGuiMouseButton_Right)) saturn_keyframe_context_popout(frame);
+			if (IsMouseDown(ImGuiMouseButton_Left)) saturn_keyframe_left_click_modif(frame);
 			if (!k_context_popout_open) saturn_keyframe_show_kf_content(frame);
 		}
 

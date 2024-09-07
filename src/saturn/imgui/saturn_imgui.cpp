@@ -804,6 +804,20 @@ int startFrame = 0;
 int endFrame = 0;
 int endFrameText = 0;
 
+void saturn_copy_keyframe(std::vector<Keyframe>* keyframes, int index) {
+    int hoverKeyframeIndex = -1;
+    for (int i = 0; i < keyframes->size(); i++) {
+        if ((*keyframes)[i].position == k_current_frame) hoverKeyframeIndex = i;
+    }
+    Keyframe copy = Keyframe();
+    copy.position = k_current_frame;
+    copy.curve = (*keyframes)[index].curve;
+    copy.value = (*keyframes)[index].value;
+    copy.timelineID = (*keyframes)[index].timelineID;
+    if (hoverKeyframeIndex == -1) keyframes->push_back(copy);
+    else (*keyframes)[hoverKeyframeIndex] = copy;
+}
+
 void saturn_keyframe_window() {
     const char* windowLabel = "Timeline###kf_timeline";
     if (!saturn_imgui_window(windowLabel, ImGuiWindowFlags_NoScrollWithMouse)) return;
@@ -847,17 +861,7 @@ void saturn_keyframe_window() {
             k_previous_frame = -1;
         }
         if (doCopy) {
-            int hoverKeyframeIndex = -1;
-            for (int i = 0; i < keyframes->size(); i++) {
-                if ((*keyframes)[i].position == k_current_frame) hoverKeyframeIndex = i;
-            }
-            Keyframe copy = Keyframe();
-            copy.position = k_current_frame;
-            copy.curve = (*keyframes)[index].curve;
-            copy.value = (*keyframes)[index].value;
-            copy.timelineID = (*keyframes)[index].timelineID;
-            if (hoverKeyframeIndex == -1) keyframes->push_back(copy);
-            else (*keyframes)[hoverKeyframeIndex] = copy;
+            saturn_copy_keyframe(keyframes, index);
             k_context_popout_open = false;
             k_previous_frame = -1;
         }
@@ -1738,6 +1742,19 @@ void saturn_keyframe_context_popout(Keyframe keyframe) {
     k_context_popout_open = true;
     k_context_popout_pos = ImGui::GetMousePos();
     k_context_popout_keyframe = keyframe;
+}
+
+void saturn_keyframe_left_click_modif(Keyframe keyframe) {
+    if (keyframe_playing || k_context_popout_open) return;
+    const Uint8* kb = SDL_GetKeyboardState(NULL);
+    std::vector<Keyframe>* keyframes = &k_frame_keys[keyframe.timelineID].second;
+    int index = -1;
+    for (int i = 0; i < keyframes->size(); i++) {
+        if ((*keyframes)[i].position == keyframe.position) index = i;
+    }
+    if (kb[SDL_SCANCODE_LSHIFT]) saturn_copy_keyframe(keyframes, index);
+    if (kb[SDL_SCANCODE_LCTRL] && keyframe.position != 0) keyframes->erase(keyframes->begin() + index);
+    saturn_keyframe_sort(keyframes);
 }
 
 void saturn_keyframe_show_kf_content(Keyframe keyframe) {
