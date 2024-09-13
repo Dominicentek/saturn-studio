@@ -69,7 +69,7 @@ MarioActor* saturn_spawn_actor(float x, float y, float z) {
         return saturn_add_actor(actor);
     }
     auto anim = saturn_animation_data[range.first];
-    actor.num_bones = range.second - range.first == 0 ? 0 : anim.second(anim.first).unk0A;
+    actor.num_bones = range.second - range.first == 0 ? 0 : anim.second(anim.first).unk0A + 1;
     if (actor.num_bones != 0 && saturn_obj_initial_anims.find(current_mario_model) != saturn_obj_initial_anims.end()) {
         actor.animstate.id = saturn_obj_initial_anims[current_mario_model];
     }
@@ -361,14 +361,22 @@ void saturn_actor_bone_iterate() {
     actor->custom_bone_iter++;
 }
 
+void saturn_actor_bone_iterate_back() {
+    MarioActor* actor = saturn_get_actor(o->oMarioActorIndex);
+    if (o->behavior != bhvMarioActor) actor = nullptr;
+    if (actor == nullptr) return;
+    actor->custom_bone_iter--;
+}
+
 void saturn_actor_bone_do_override(Vec3s rotation) {
     MarioActor* actor = saturn_get_actor(o->oMarioActorIndex);
     if (o->behavior != bhvMarioActor) actor = nullptr;
     if (actor == nullptr) return;
+    float multiplier = actor->custom_bone_iter == 0 ? 1 : (65536 / 360.f);
     vec3s_set(rotation,
-        actor->bones[actor->custom_bone_iter][0] / 360.f * 65536,
-        actor->bones[actor->custom_bone_iter][1] / 360.f * 65536,
-        actor->bones[actor->custom_bone_iter][2] / 360.f * 65536
+        actor->bones[actor->custom_bone_iter][0] * multiplier,
+        actor->bones[actor->custom_bone_iter][1] * multiplier,
+        actor->bones[actor->custom_bone_iter][2] * multiplier
     );
 }
 

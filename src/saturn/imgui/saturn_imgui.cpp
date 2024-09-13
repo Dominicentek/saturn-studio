@@ -387,12 +387,12 @@ void imgui_update_theme() {
     }
 
     // backwards compatibility with older theme settings
-    if (configEditorTheme == 0) editor_theme = "legacy";
-    else if (configEditorTheme == 1) editor_theme = "moon";
+    editor_theme = "legacy";
+    if (configEditorTheme == 1) editor_theme = "moon";
     else if (configEditorTheme == 2) editor_theme = "halflife";
     else if (configEditorTheme == 3) editor_theme = "moviemaker";
     else if (configEditorTheme == 4) editor_theme = "dear";
-    else {
+    else if (std::filesystem::exists("dynos/themes")) {
         for (const auto& entry : std::filesystem::directory_iterator("dynos/themes")) {
             std::filesystem::path path = entry.path();
             if (path.extension().string() != ".json") continue;
@@ -411,7 +411,7 @@ void imgui_update_theme() {
     style->ScaleAllSizes(SCALE);
 }
 
-int selected_video_format = 0;
+int selected_video_format;
 int videores[] = { 1920, 1080 };
 bool capturing_video = false;
 bool orthographic_mode = false;
@@ -559,7 +559,7 @@ void saturn_imgui_stop_capture() {
 }
 
 bool saturn_imgui_is_capturing_transparent_video() {
-    return capturing_video && transparency_enabled && (video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY);
+    return capturing_video && transparency_enabled && ((video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || !keyframe_playing);
 }
 
 void saturn_imgui_set_frame_buffer(void* fb, bool do_capture) {
@@ -654,6 +654,7 @@ void saturn_imgui_init_backend(SDL_Window * sdl_window, SDL_GLContext ctx) {
 }
 
 void saturn_load_themes() {
+    if (!std::filesystem::exists("dynos/themes")) return;
     for (const auto& entry : std::filesystem::directory_iterator("dynos/themes")) {
         std::filesystem::path path = entry.path();
         if (path.extension().string() != ".json") continue;
@@ -736,6 +737,8 @@ void saturn_imgui_init() {
     saturn_load_project_list();
 
     ffmpeg_installed = is_ffmpeg_installed();
+    if (ffmpeg_installed) selected_video_format = 2; // .mp4
+    else                  selected_video_format = 0; // .png sequence
     saturn_set_video_renderer(selected_video_format);
 }
 
@@ -780,14 +783,9 @@ void saturn_imgui_handle_events(SDL_Event * event) {
 
 extern s8 sObjectListUpdateOrder[];
 void for_each_obj(std::function<void(struct Object*)> func) {
-    for (int index, i = 0; (index = sObjectListUpdateOrder[i]) != -1; i++) {
-        struct ObjectNode* list = &gObjectLists[index];
-        struct ObjectNode* curr = list->next;
-        while (list != curr) {
-            struct Object* obj = (struct Object*)curr;
-            func(obj);
-            curr = curr->next;
-        }
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        func(gObjectPool + i);
     }
 }
 
@@ -805,6 +803,20 @@ void saturn_keyframe_sort(std::vector<Keyframe>* keyframes) {
 int startFrame = 0;
 int endFrame = 0;
 int endFrameText = 0;
+
+void saturn_copy_keyframe(std::vector<Keyframe>* keyframes, int index) {
+    int hoverKeyframeIndex = -1;
+    for (int i = 0; i < keyframes->size(); i++) {
+        if ((*keyframes)[i].position == k_current_frame) hoverKeyframeIndex = i;
+    }
+    Keyframe copy = Keyframe();
+    copy.position = k_current_frame;
+    copy.curve = (*keyframes)[index].curve;
+    copy.value = (*keyframes)[index].value;
+    copy.timelineID = (*keyframes)[index].timelineID;
+    if (hoverKeyframeIndex == -1) keyframes->push_back(copy);
+    else (*keyframes)[hoverKeyframeIndex] = copy;
+}
 
 void saturn_keyframe_window() {
     const char* windowLabel = "Timeline###kf_timeline";
@@ -849,17 +861,7 @@ void saturn_keyframe_window() {
             k_previous_frame = -1;
         }
         if (doCopy) {
-            int hoverKeyframeIndex = -1;
-            for (int i = 0; i < keyframes->size(); i++) {
-                if ((*keyframes)[i].position == k_current_frame) hoverKeyframeIndex = i;
-            }
-            Keyframe copy = Keyframe();
-            copy.position = k_current_frame;
-            copy.curve = (*keyframes)[index].curve;
-            copy.value = (*keyframes)[index].value;
-            copy.timelineID = (*keyframes)[index].timelineID;
-            if (hoverKeyframeIndex == -1) keyframes->push_back(copy);
-            else (*keyframes)[hoverKeyframeIndex] = copy;
+            saturn_copy_keyframe(keyframes, index);
             k_context_popout_open = false;
             k_previous_frame = -1;
         }
@@ -1308,20 +1310,20 @@ void saturn_imgui_update() {
                 if (ImGui::Selectable("8K 16:9"))        { videores[0] = 7680; videores[1] = 4320; }
                 ImGui::EndCombo();
             }
-            bool fps60_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS);
+            bool sixty_fps_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS);
             bool transparency_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || orthographic_mode;
             ImGui::InputInt2("Resolution", videores);
             ImGui::Checkbox("Preview Aspect Ratio", &keep_aspect_ratio);
             ImGui::Checkbox("Anti-aliasing", &video_antialias);
-            ImGui_ConditionalCheckbox("60 FPS", &sixty_fps_enabled, fps60_supported && configFps60);
-            ImGui_ConditionalCheckbox("Transparency", &transparency_enabled, transparency_supported);
-            if (!fps60_supported) {
+            ImGui::Checkbox("Transparency", &transparency_enabled);
+            ImGui_ConditionalCheckbox("60 FPS", &sixty_fps_enabled, sixty_fps_supported && configFps60);
+            if (!sixty_fps_supported) {
                 ImGui::Text(ICON_FK_EXCLAMATION_TRIANGLE " This video format doesn't");
-                ImGui::Text("support 60 FPS framerate");
+                ImGui::Text("support 60 FPS framerate.");
             }
             if (!transparency_supported) {
                 ImGui::Text(ICON_FK_EXCLAMATION_TRIANGLE " This video format doesn't");
-                ImGui::Text("support transparency");
+                ImGui::Text("support transparency.");
             }
             int curr_projection = request_ortho_mode == 0 ? orthographic_mode : request_ortho_mode - 1;
             if (ImGui::Combo("Projection", &curr_projection,
@@ -1740,6 +1742,19 @@ void saturn_keyframe_context_popout(Keyframe keyframe) {
     k_context_popout_open = true;
     k_context_popout_pos = ImGui::GetMousePos();
     k_context_popout_keyframe = keyframe;
+}
+
+void saturn_keyframe_left_click_modif(Keyframe keyframe) {
+    if (keyframe_playing || k_context_popout_open) return;
+    const Uint8* kb = SDL_GetKeyboardState(NULL);
+    std::vector<Keyframe>* keyframes = &k_frame_keys[keyframe.timelineID].second;
+    int index = -1;
+    for (int i = 0; i < keyframes->size(); i++) {
+        if ((*keyframes)[i].position == keyframe.position) index = i;
+    }
+    if (kb[SDL_SCANCODE_LSHIFT]) saturn_copy_keyframe(keyframes, index);
+    if (kb[SDL_SCANCODE_LCTRL] && keyframe.position != 0) keyframes->erase(keyframes->begin() + index);
+    saturn_keyframe_sort(keyframes);
 }
 
 void saturn_keyframe_show_kf_content(Keyframe keyframe) {

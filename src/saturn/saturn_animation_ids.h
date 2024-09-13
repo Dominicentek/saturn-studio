@@ -76,6 +76,7 @@ static struct Animation from_addr(const void* addr) {
 #define SWITCHES(switches...)
 #define SWITCHES_ANIM(frames)
 #define SWITCHES_EYES() SWITCHES("Eyes Open", "Eyes Closed")
+#define ANIM_CATEGORY(label)
 static std::vector<std::pair<const void*, std::function<struct Animation(const void*)>>> saturn_animation_data = {
 #include "saturn_animation_def.h"
 };
@@ -129,12 +130,34 @@ static std::vector<int> saturn_iterable_obj_list = {
 #undef INITIAL_MARIO_ANIM
 #undef INITIAL_MODEL_ANIM
 #undef NO_ANIMS
+#undef ANIM_CATEGORY
+#define MODEL(id, name, anims) { id, { { "_", {anims } } } },
+#define MARIO_ANIM(name) __COUNTER__,
+#define MODEL_ANIM(name, addr) __COUNTER__,
+#define INITIAL_MARIO_ANIM(name) __COUNTER__,
+#define INITIAL_MODEL_ANIM(name, addr) __COUNTER__,
+#define ANIM_CATEGORY(name) }}, { name, {
+#define NO_ANIMS()
+static std::map<int, std::map<std::string, std::vector<int>>> saturn_animation_categories = {
+#include "saturn_animation_def.h"
+};
+
+static int __curr_count_1 = __COUNTER__;
+
+#undef MODEL
+#undef MARIO_ANIM
+#undef MODEL_ANIM
+#undef INITIAL_MARIO_ANIM
+#undef INITIAL_MODEL_ANIM
+#undef NO_ANIMS
+#undef ANIM_CATEGORY
 #define MODEL(id, name, anims) { id, anims },
 #define MARIO_ANIM(name) INC
 #define MODEL_ANIM(name, addr) INC
-#define INITIAL_MARIO_ANIM(name) __COUNTER__
-#define INITIAL_MODEL_ANIM(name, addr) __COUNTER__
+#define INITIAL_MARIO_ANIM(name) __COUNTER__ - __curr_count_1 - 1
+#define INITIAL_MODEL_ANIM(name, addr) __COUNTER__ - __curr_count_1 - 1
 #define NO_ANIMS() -1
+#define ANIM_CATEGORY(name)
 static std::map<int, int> saturn_obj_initial_anims = {
 #include "saturn_animation_def.h"
 };

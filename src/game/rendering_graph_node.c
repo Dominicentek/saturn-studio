@@ -18,6 +18,7 @@
 #include "object_list_processor.h"
 #include "behavior_data.h"
 #include "saturn/imgui/saturn_imgui.h"
+#include "saturn/imgui/saturn_imgui_machinima.h"
 
 /**
  * This file contains the code that processes the scene graph for rendering.
@@ -787,7 +788,8 @@ static void geo_process_background(struct GraphNodeBackground *node) {
     }
 }
 
-static void anim_process(Vec3f translation, Vec3s rotation, u8 *animType, s16 animFrame, u16 **animAttribute) {
+static void anim_process(Vec3f translation, Vec3s rotation, u8 *animType, s16 animFrame, u16 **animAttribute, u8 interpolation) {
+    bool override_translation = false;
     if (*animType == ANIM_TYPE_TRANSLATION) {
         translation[0] += gCurAnimData[retrieve_animation_index(animFrame, animAttribute)]
                           * gCurAnimTranslationMultiplier;
@@ -796,6 +798,7 @@ static void anim_process(Vec3f translation, Vec3s rotation, u8 *animType, s16 an
         translation[2] += gCurAnimData[retrieve_animation_index(animFrame, animAttribute)]
                           * gCurAnimTranslationMultiplier;
         *animType = ANIM_TYPE_ROTATION;
+        override_translation = true;
     } else {
         if (*animType == ANIM_TYPE_LATERAL_TRANSLATION) {
             translation[0] +=
@@ -806,6 +809,7 @@ static void anim_process(Vec3f translation, Vec3s rotation, u8 *animType, s16 an
                 gCurAnimData[retrieve_animation_index(animFrame, animAttribute)]
                 * gCurAnimTranslationMultiplier;
             *animType = ANIM_TYPE_ROTATION;
+            override_translation = true;
         } else {
             if (*animType == ANIM_TYPE_VERTICAL_TRANSLATION) {
                 *animAttribute += 2;
@@ -814,16 +818,28 @@ static void anim_process(Vec3f translation, Vec3s rotation, u8 *animType, s16 an
                     * gCurAnimTranslationMultiplier;
                 *animAttribute += 2;
                 *animType = ANIM_TYPE_ROTATION;
+                override_translation = true;
             } else if (*animType == ANIM_TYPE_NO_TRANSLATION) {
                 *animAttribute += 6;
                 *animType = ANIM_TYPE_ROTATION;
+                override_translation = true;
             }
         }
+    }
+
+    if (override_translation && saturn_actor_bone_should_override()) {
+        Vec3s s;
+        Vec3f f;
+        saturn_actor_bone_do_override(s);
+        saturn_actor_bone_iterate();
+        vec3s_to_vec3f(f, s);
+        vec3f_copy(translation, f);
     }
 
     if (*animType == ANIM_TYPE_ROTATION) {
         if (saturn_actor_bone_should_override()) {
             saturn_actor_bone_do_override(rotation);
+            if (override_translation && interpolation) saturn_actor_bone_iterate_back();
             *animAttribute += 6;
         }
         else {
@@ -863,9 +879,9 @@ static void geo_process_animated_part(struct GraphNodeAnimatedPart *node) {
 
     // 60 FPS animation interpolation
     if (configFps60 == 1)
-        anim_process(translationInterpolated, rotationInterpolated, &animType, gPrevAnimFrame, &animAttribute);
+        anim_process(translationInterpolated, rotationInterpolated, &animType, gPrevAnimFrame, &animAttribute, 1);
 
-    anim_process(translation, rotation, &gCurAnimType, gCurrAnimFrame, &gCurrAnimAttribute);
+    anim_process(translation, rotation, &gCurAnimType, gCurrAnimFrame, &gCurrAnimAttribute, 0);
     saturn_actor_bone_iterate();
     interpolate_vectors(translationInterpolated, translationInterpolated, translation);
     interpolate_angles(rotationInterpolated, rotationInterpolated, rotation);
@@ -1118,68 +1134,7 @@ static void geo_process_shadow(struct GraphNodeShadow *node) {
  * Since (0,0,0) is unaffected by rotation, columns 0, 1 and 2 are ignored.
  */
 static int obj_is_in_view(struct GraphNodeObject *node, Mat4 matrix) {
-    s16 cullingRadius;
-    s16 halfFov; // half of the fov in in-game angle units instead of degrees
-    struct GraphNode *geo;
-    f32 hScreenEdge;
-
-    if (node->node.flags & GRAPH_RENDER_INVISIBLE) {
-        return FALSE;
-    }
-
-    if (simulating_world) return TRUE;
-    if (saturn_imgui_is_orthographic()) return TRUE;
-    if (gCurrentObject->behavior == bhvMario && saturn_actor_is_recording_input()) return FALSE;
-    if ((
-        gCurrentObject->behavior != bhvMarioActor &&
-        gCurrentObject->behavior != bhvCamera &&
-        gCurrentObject->behavior != bhvMario
-    ) && autoChroma && !autoChromaObjects) return FALSE;
-
-    geo = node->sharedChild;
-
-    // ! @bug The aspect ratio is not accounted for. When the fov value is 45,
-    // the horizontal effective fov is actually 60 degrees, so you can see objects
-    // visibly pop in or out at the edge of the screen.
-    halfFov = (gCurGraphNodeCamFrustum->fov / 2.0f + 1.0f) * 32768.0f / 180.0f + 0.5f;
-
-    hScreenEdge = -matrix[3][2] * sins(halfFov) / coss(halfFov);
-    // -matrix[3][2] is the depth, which gets multiplied by tan(halfFov) to get
-    // the amount of units between the center of the screen and the horizontal edge
-    // given the distance from the object to the camera.
-
-    // This multiplication should really be performed on 4:3 as well,
-    // but the issue will be more apparent on widescreen.
-    hScreenEdge *= GFX_DIMENSIONS_ASPECT_RATIO;
-
-    if (geo != NULL && geo->type == GRAPH_NODE_TYPE_CULLING_RADIUS) {
-        cullingRadius =
-            (f32)((struct GraphNodeCullingRadius *) geo)->cullingRadius; //! Why is there a f32 cast?
-    } else {
-        cullingRadius = 300;
-    }
-
-    // Don't render if the object is close to or behind the camera
-    if (matrix[3][2] > -100.0f + cullingRadius) {
-        return FALSE;
-    }
-
-    //! This makes the HOLP not update when the camera is far away, and it
-    //  makes PU travel safe when the camera is locked on the main map.
-    //  If Mario were rendered with a depth over 65536 it would cause overflow
-    //  when converting the transformation matrix to a fixed point matrix.
-    if (matrix[3][2] < -20000.0f - cullingRadius) {
-        return FALSE;
-    }
-
-    // Check whether the object is horizontally in view
-    if (matrix[3][0] > hScreenEdge + cullingRadius) {
-        return FALSE;
-    }
-    if (matrix[3][0] < -hScreenEdge - cullingRadius) {
-        return FALSE;
-    }
-    return TRUE;
+    return !(node->node.flags & GRAPH_RENDER_INVISIBLE);
 }
 
 static void interpolate_matrix(Mat4 result, Mat4 a, Mat4 b) {
@@ -1346,6 +1301,9 @@ static void geo_process_object_parent(struct GraphNodeObjectParent *node) {
         if (!obj) continue;
         if (!obj->header.gfx.sharedChild) continue;
         geo_process_object(obj);
+    }
+    if (override_level && override_level_geolayout) {
+        geo_process_node_and_siblings(override_level_geolayout);
     }
 }
 

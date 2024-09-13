@@ -431,6 +431,8 @@ void ssettings_imgui_update() {
         //imgui_bundled_tooltip("If enabled, a model-unique color code (if present) will automatically be assigned when selecting a model.");
         //ImGui::Checkbox("Always show chroma options", &configEditorAlwaysChroma);
         //imgui_bundled_tooltip("Allows the usage of CHROMA KEY features outside of the paired stage; Useful only for models and custom-compiled levels.");
+        ImGui::SliderInt("Worldsim Steps", (int*)&configWorldsimSteps, 1, 50);
+        imgui_bundled_tooltip("Only make nth worldsim frame as sampling frame.\nHigher value reduces memory usage at the cost of performance.");
     }
     if (ImGui::CollapsingHeader("Save File")) {
         ImGui::SeparatorText("Stars");

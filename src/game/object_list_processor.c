@@ -78,13 +78,6 @@ struct Object gObjectPool[OBJECT_POOL_CAPACITY];
 struct Object gMacroObjectDefaultParent;
 
 /**
- * A pointer to gObjectListArray.
- * Given an object list index idx, gObjectLists[idx] is the head of a doubly
- * linked list of all currently spawned objects in the list.
- */
-struct ObjectNode *gObjectLists;
-
-/**
  * A singly linked list of available slots in the object pool.
  */
 struct ObjectNode gFreeObjectList;
@@ -164,11 +157,6 @@ s16 gNumRoomedObjectsInMarioRoom;
 s16 gNumRoomedObjectsNotInMarioRoom;
 s16 gWDWWaterLevelChanging;
 s16 gMarioOnMerryGoRound;
-
-/**
- * Nodes used to represent the doubly linked object lists.
- */
-struct ObjectNode gObjectListArray[16];
 
 /**
  * The order that object lists are processed in a frame.
@@ -298,16 +286,17 @@ void bhv_mario_update(void) {
  * Update every object that occurs after firstObj in the given object list,
  * including firstObj itself. Return the number of objects that were updated.
  */
-s32 update_objects_starting_at(struct ObjectNode *objList, struct ObjectNode *firstObj) {
+s32 update_objects_in(int objList) {
     s32 count = 0;
 
-    while (objList != firstObj) {
-        gCurrentObject = (struct Object *) firstObj;
-
-        gCurrentObject->header.gfx.node.flags |= GRAPH_RENDER_HAS_ANIMATION;
-        cur_obj_update();
-        firstObj = firstObj->next;
-        count += 1;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].objList == objList) {
+            gCurrentObject = gObjectPool + i;
+            gCurrentObject->header.gfx.node.flags |= GRAPH_RENDER_HAS_ANIMATION;
+            cur_obj_update();
+            count++;
+        }
     }
 
     return count;
@@ -322,12 +311,14 @@ s32 update_objects_starting_at(struct ObjectNode *objList, struct ObjectNode *fi
  * Return the total number of objects in the list (including those that weren't
  * updated)
  */
-s32 update_objects_during_time_stop(struct ObjectNode *objList, struct ObjectNode *firstObj) {
+s32 update_objects_during_time_stop(int objList) {
     s32 count = 0;
     s32 unfrozen;
 
-    while (objList != firstObj) {
-        gCurrentObject = (struct Object *) firstObj;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].objList != objList) continue;
+        gCurrentObject = gObjectPool + i;
 
         unfrozen = FALSE;
 
@@ -356,7 +347,6 @@ s32 update_objects_during_time_stop(struct ObjectNode *objList, struct ObjectNod
             gCurrentObject->header.gfx.node.flags &= ~GRAPH_RENDER_HAS_ANIMATION;
         }
 
-        firstObj = firstObj->next;
         count++;
     }
 
@@ -367,42 +357,16 @@ s32 update_objects_during_time_stop(struct ObjectNode *objList, struct ObjectNod
  * Update every object in the given list. Return the total number of objects in
  * the list.
  */
-s32 update_objects_in_list(struct ObjectNode *objList) {
+s32 update_objects_in_list(int objList) {
     s32 count;
-    struct ObjectNode *firstObj = objList->next;
 
     if (!(gTimeStopState & TIME_STOP_ACTIVE)) {
-        count = update_objects_starting_at(objList, firstObj);
+        count = update_objects_in(objList);
     } else {
-        count = update_objects_during_time_stop(objList, firstObj);
+        count = update_objects_during_time_stop(objList);
     }
 
     return count;
-}
-
-/**
- * Unload any objects in the list that have been deactivated.
- */
-s32 unload_deactivated_objects_in_list(struct ObjectNode *objList) {
-    struct ObjectNode *obj = objList->next;
-
-    while (objList != obj) {
-        gCurrentObject = (struct Object *) obj;
-
-        obj = obj->next;
-
-        if ((gCurrentObject->activeFlags & ACTIVE_FLAG_ACTIVE) != ACTIVE_FLAG_ACTIVE) {
-            // Prevent object from respawning after exiting and re-entering the
-            // area
-            if (!(gCurrentObject->oFlags & OBJ_FLAG_PERSISTENT_RESPAWN)) {
-                set_object_respawn_info_bits(gCurrentObject, RESPAWN_INFO_DONT_RESPAWN);
-            }
-
-            unload_object(gCurrentObject);
-        }
-    }
-
-    return 0;
 }
 
 /**
@@ -433,24 +397,8 @@ void set_object_respawn_info_bits(struct Object *obj, u8 bits) {
  * Unload all objects whose activeAreaIndex is areaIndex.
  */
 void unload_objects_from_area(UNUSED s32 unused, s32 areaIndex) {
-    struct Object *obj;
-    struct ObjectNode *node;
-    struct ObjectNode *list;
-    s32 i;
-    gObjectLists = gObjectListArray;
-
-    for (i = 0; i < NUM_OBJ_LISTS; i++) {
-        list = gObjectLists + i;
-        node = list->next;
-
-        while (node != list) {
-            obj = (struct Object *) node;
-            node = node->next;
-
-            if (obj->header.gfx.unk19 == areaIndex) {
-                unload_object(obj);
-            }
-        }
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].header.gfx.unk19 == areaIndex) unload_object(gObjectPool + i);
     }
 }
 
@@ -458,7 +406,6 @@ void unload_objects_from_area(UNUSED s32 unused, s32 areaIndex) {
  * Spawn objects given a list of SpawnInfos. Called when loading an area.
  */
 void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo) {
-    gObjectLists = gObjectListArray;
     gTimeStopState = 0;
 
     gWDWWaterLevelChanging = FALSE;
@@ -496,7 +443,6 @@ void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo) {
             object->oBehParams2ndByte = ((spawnInfo->behaviorArg) >> 16) & 0xFF;
 
             object->behavior = script;
-            object->unused1 = 0;
 
             // Record death/collection in the SpawnInfo
             object->respawnInfoType = RESPAWN_INFO_TYPE_32;
@@ -547,19 +493,18 @@ void clear_objects(void) {
 
     debug_unknown_level_select_check();
 
-    init_free_object_list();
-    clear_object_lists(gObjectListArray);
-
     stub_behavior_script_2();
     stub_obj_list_processor_1();
 
+    memset(gObjectPool, 0, sizeof(gObjectPool));
+
     for (i = 0; i < OBJECT_POOL_CAPACITY; i++) {
         gObjectPool[i].activeFlags = ACTIVE_FLAG_DEACTIVATED;
+        gObjectPool[i].allocated = 0;
         geo_reset_object_node(&gObjectPool[i].header.gfx);
     }
 
     gObjectMemoryPool = mem_pool_init(0x800, MEMORY_POOL_LEFT);
-    gObjectLists = gObjectListArray;
 
     clear_dynamic_surfaces();
 }
@@ -568,9 +513,9 @@ void clear_objects(void) {
  * Update spawner and surface objects.
  */
 void update_terrain_objects(void) {
-    gObjectCounter = update_objects_in_list(&gObjectLists[OBJ_LIST_SPAWNER]);
+    gObjectCounter = update_objects_in_list(OBJ_LIST_SPAWNER);
     //! This was meant to be +=
-    gObjectCounter = update_objects_in_list(&gObjectLists[OBJ_LIST_SURFACE]);
+    gObjectCounter = update_objects_in_list(OBJ_LIST_SURFACE);
 }
 
 /**
@@ -583,7 +528,7 @@ void update_non_terrain_objects(void) {
 
     s32 i = 2;
     while ((listIndex = sObjectListUpdateOrder[i]) != -1) {
-        gObjectCounter += update_objects_in_list(&gObjectLists[listIndex]);
+        gObjectCounter += update_objects_in_list(listIndex);
         i += 1;
     }
 }
@@ -593,12 +538,17 @@ void update_non_terrain_objects(void) {
  */
 void unload_deactivated_objects(void) {
     UNUSED s32 unused;
-    s32 listIndex;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        gCurrentObject = gObjectPool + i;
+        if ((gCurrentObject->activeFlags & ACTIVE_FLAG_ACTIVE) != ACTIVE_FLAG_ACTIVE) {
+            // Prevent object from respawning after exiting and re-entering the
+            // area
+            if (!(gCurrentObject->oFlags & OBJ_FLAG_PERSISTENT_RESPAWN)) {
+                set_object_respawn_info_bits(gCurrentObject, RESPAWN_INFO_DONT_RESPAWN);
+            }
 
-    s32 i = 0;
-    while ((listIndex = sObjectListUpdateOrder[i]) != -1) {
-        unload_deactivated_objects_in_list(&gObjectLists[listIndex]);
-        i += 1;
+            unload_object(gCurrentObject);
+        }
     }
 
     // TIME_STOP_UNKNOWN_0 was most likely intended to be used to track whether
@@ -643,8 +593,6 @@ void update_objects(UNUSED s32 unused) {
 
     reset_debug_objectinfo();
     stub_debug_5();
-
-    gObjectLists = gObjectListArray;
 
     // If time stop is not active, unload object surfaces
     cycleCounts[1] = get_clock_difference(cycleCounts[0]);

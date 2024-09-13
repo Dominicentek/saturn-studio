@@ -93,90 +93,76 @@ int detect_object_hurtbox_overlap(struct Object *a, struct Object *b) {
     //! no return value
 }
 
-void clear_object_collision(struct Object *a) {
-    struct Object *sp4 = (struct Object *) a->header.next;
-
-    while (sp4 != a) {
-        sp4->numCollidedObjs = 0;
-        sp4->collidedObjInteractTypes = 0;
-        if (sp4->oIntangibleTimer > 0) {
-            sp4->oIntangibleTimer--;
-        }
-        sp4 = (struct Object *) sp4->header.next;
-    }
-}
-
-void check_collision_in_list(struct Object *a, struct Object *b, struct Object *c) {
-    if (a->oIntangibleTimer == 0) {
-        while (b != c) {
-            if (b->oIntangibleTimer == 0) {
-                if (detect_object_hitbox_overlap(a, b) && b->hurtboxRadius != 0.0f) {
-                    detect_object_hurtbox_overlap(a, b);
-                }
-            }
-            b = (struct Object *) b->header.next;
-        }
+void check_collision(struct Object* a, struct Object* b) {
+    if (a->oIntangibleTimer + b->oIntangibleTimer != 0) return;
+    if (detect_object_hitbox_overlap(a, b) && b->hurtboxRadius != 0.0f) {
+        detect_object_hurtbox_overlap(a, b);
     }
 }
 
 void check_player_object_collision(void) {
-    struct Object *sp1C = (struct Object *) &gObjectLists[OBJ_LIST_PLAYER];
-    struct Object *sp18 = (struct Object *) sp1C->header.next;
-
-    while (sp18 != sp1C) {
-        check_collision_in_list(sp18, (struct Object *) sp18->header.next, sp1C);
-        check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_POLELIKE].next,
-                      (struct Object *) &gObjectLists[OBJ_LIST_POLELIKE]);
-        check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_LEVEL].next,
-                      (struct Object *) &gObjectLists[OBJ_LIST_LEVEL]);
-        check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_GENACTOR].next,
-                      (struct Object *) &gObjectLists[OBJ_LIST_GENACTOR]);
-        check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_PUSHABLE].next,
-                      (struct Object *) &gObjectLists[OBJ_LIST_PUSHABLE]);
-        check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_SURFACE].next,
-                      (struct Object *) &gObjectLists[OBJ_LIST_SURFACE]);
-        check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_DESTRUCTIVE].next,
-                      (struct Object *) &gObjectLists[OBJ_LIST_DESTRUCTIVE]);
-        sp18 = (struct Object *) sp18->header.next;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (
+            (gObjectPool[i].objList != OBJ_LIST_POLELIKE) &&
+            (gObjectPool[i].objList != OBJ_LIST_PUSHABLE) &&
+            (gObjectPool[i].objList != OBJ_LIST_GENACTOR) &&
+            (gObjectPool[i].objList != OBJ_LIST_LEVEL) &&
+            (gObjectPool[i].objList != OBJ_LIST_SURFACE) &&
+            (gObjectPool[i].objList != OBJ_LIST_DESTRUCTIVE)
+        ) continue;
+        check_collision(gMarioObject, &gObjectPool[i]);
     }
 }
 
 void check_pushable_object_collision(void) {
-    struct Object *sp1C = (struct Object *) &gObjectLists[OBJ_LIST_PUSHABLE];
-    struct Object *sp18 = (struct Object *) sp1C->header.next;
-
-    while (sp18 != sp1C) {
-        check_collision_in_list(sp18, (struct Object *) sp18->header.next, sp1C);
-        sp18 = (struct Object *) sp18->header.next;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].objList != OBJ_LIST_PUSHABLE) continue;
+        for (int j = 0; j < OBJECT_POOL_CAPACITY; j++) {
+            if (i == j) continue;
+            if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+            if (gObjectPool[i].objList != OBJ_LIST_PUSHABLE) continue;
+            check_collision(gObjectPool + i, gObjectPool + j);
+        }
     }
 }
 
 void check_destructive_object_collision(void) {
-    struct Object *sp1C = (struct Object *) &gObjectLists[OBJ_LIST_DESTRUCTIVE];
-    struct Object *sp18 = (struct Object *) sp1C->header.next;
-
-    while (sp18 != sp1C) {
-        if (sp18->oDistanceToMario < 2000.0f && !(sp18->activeFlags & ACTIVE_FLAG_UNK9)) {
-            check_collision_in_list(sp18, (struct Object *) sp18->header.next, sp1C);
-            check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_GENACTOR].next,
-                          (struct Object *) &gObjectLists[OBJ_LIST_GENACTOR]);
-            check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_PUSHABLE].next,
-                          (struct Object *) &gObjectLists[OBJ_LIST_PUSHABLE]);
-            check_collision_in_list(sp18, (struct Object *) gObjectLists[OBJ_LIST_SURFACE].next,
-                          (struct Object *) &gObjectLists[OBJ_LIST_SURFACE]);
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].objList != OBJ_LIST_DESTRUCTIVE) continue;
+        for (int j = 0; j < OBJECT_POOL_CAPACITY; j++) {
+            if (i == j) continue;
+            if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+            if (
+                (gObjectPool[i].objList != OBJ_LIST_GENACTOR) &&
+                (gObjectPool[i].objList != OBJ_LIST_PUSHABLE) &&
+                (gObjectPool[i].objList != OBJ_LIST_SURFACE)
+            ) continue;
+            check_collision(gObjectPool + i, gObjectPool + j);
         }
-        sp18 = (struct Object *) sp18->header.next;
     }
 }
 
 void detect_object_collisions(void) {
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_POLELIKE]);
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_PLAYER]);
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_PUSHABLE]);
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_GENACTOR]);
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_LEVEL]);
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_SURFACE]);
-    clear_object_collision((struct Object *) &gObjectLists[OBJ_LIST_DESTRUCTIVE]);
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (
+            (gObjectPool[i].objList != OBJ_LIST_POLELIKE) &&
+            (gObjectPool[i].objList != OBJ_LIST_PLAYER) &&
+            (gObjectPool[i].objList != OBJ_LIST_PUSHABLE) &&
+            (gObjectPool[i].objList != OBJ_LIST_GENACTOR) &&
+            (gObjectPool[i].objList != OBJ_LIST_LEVEL) &&
+            (gObjectPool[i].objList != OBJ_LIST_SURFACE) &&
+            (gObjectPool[i].objList != OBJ_LIST_DESTRUCTIVE)
+        ) continue;
+        gObjectPool[i].numCollidedObjs = 0;
+        gObjectPool[i].collidedObjInteractTypes = 0;
+        if (gObjectPool[i].oIntangibleTimer > 0) {
+            gObjectPool[i].oIntangibleTimer--;
+        }
+    }
     check_player_object_collision();
     check_destructive_object_collision();
     check_pushable_object_collision();

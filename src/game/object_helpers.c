@@ -1,5 +1,6 @@
 #include <PR/ultratypes.h>
 
+#include "object_constants.h"
 #include "sm64.h"
 #include "area.h"
 #include "behavior_actions.h"
@@ -849,101 +850,57 @@ f32 cur_obj_dist_to_nearest_object_with_behavior(const BehaviorScript *behavior)
 }
 
 struct Object *cur_obj_find_nearest_object_with_behavior(const BehaviorScript *behavior, f32 *dist) {
-    uintptr_t *behaviorAddr = segmented_to_virtual(behavior);
-    struct Object *closestObj = NULL;
-    struct Object *obj;
-    struct ObjectNode *listHead;
-    f32 minDist = 0x20000;
-
-    listHead = &gObjectLists[get_object_list_from_behavior(behaviorAddr)];
-    obj = (struct Object *) listHead->next;
-
-    while (obj != (struct Object *) listHead) {
-        if (obj->behavior == behaviorAddr) {
-            if (obj->activeFlags != ACTIVE_FLAG_DEACTIVATED && obj != o) {
-                f32 objDist = dist_between_objects(o, obj);
-                if (objDist < minDist) {
-                    closestObj = obj;
-                    minDist = objDist;
-                }
-            }
+    f32 nearestDist = 0x20000;
+    struct Object* nearest = NULL;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].behavior != behavior) continue;
+        if (gObjectPool + i == o) continue;
+        f32 dist = dist_between_objects(o, gObjectPool + i);
+        if (nearestDist > dist) {
+            nearestDist = dist;
+            nearest = gObjectPool + i;
         }
-        obj = (struct Object *) obj->header.next;
     }
-
-    *dist = minDist;
-    return closestObj;
+    if (dist) *dist = nearestDist;
+    return nearest;
 }
 
 struct Object *find_unimportant_object(void) {
-    struct ObjectNode *listHead = &gObjectLists[OBJ_LIST_UNIMPORTANT];
-    struct ObjectNode *obj = listHead->next;
-
-    if (listHead == obj) {
-        obj = NULL;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].objList == OBJ_LIST_UNIMPORTANT) return gObjectPool + i;
     }
-
-    return (struct Object *) obj;
+    return NULL;
 }
 
 s32 count_unimportant_objects(void) {
-    struct ObjectNode *listHead = &gObjectLists[OBJ_LIST_UNIMPORTANT];
-    struct ObjectNode *obj = listHead->next;
-    s32 count = 0;
-
-    while (listHead != obj) {
-        count++;
-        obj = obj->next;
+    int count = 0;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].objList == OBJ_LIST_UNIMPORTANT) count++;
     }
-
     return count;
 }
 
 s32 count_objects_with_behavior(const BehaviorScript *behavior) {
-    uintptr_t *behaviorAddr = segmented_to_virtual(behavior);
-    struct ObjectNode *listHead = &gObjectLists[get_object_list_from_behavior(behaviorAddr)];
-    struct ObjectNode *obj = listHead->next;
-    s32 count = 0;
-
-    while (listHead != obj) {
-        if (((struct Object *) obj)->behavior == behaviorAddr) {
-            count++;
-        }
-
-        obj = obj->next;
+    int count = 0;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].behavior != behavior) continue;
+        if (gObjectPool + i == o) continue;
+        count++;
     }
-
     return count;
 }
 
 struct Object *cur_obj_find_nearby_held_actor(const BehaviorScript *behavior, f32 maxDist) {
-    const BehaviorScript *behaviorAddr = segmented_to_virtual(behavior);
-    struct ObjectNode *listHead;
-    struct Object *obj;
-    struct Object *foundObj;
-
-    listHead = &gObjectLists[OBJ_LIST_GENACTOR];
-    obj = (struct Object *) listHead->next;
-    foundObj = NULL;
-
-    while ((struct Object *) listHead != obj) {
-        if (obj->behavior == behaviorAddr) {
-            if (obj->activeFlags != ACTIVE_FLAG_DEACTIVATED) {
-                // This includes the dropped and thrown states. By combining instant
-                // release, this allows us to activate mama penguin remotely
-                if (obj->oHeldState != HELD_FREE) {
-                    if (dist_between_objects(o, obj) < maxDist) {
-                        foundObj = obj;
-                        break;
-                    }
-                }
-            }
-        }
-
-        obj = (struct Object *) obj->header.next;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].behavior != behavior) continue;
+        if (gObjectPool[i].oHeldState == HELD_FREE) continue;
+        if (dist_between_objects(o, gObjectPool + i) < maxDist) return gObjectPool + i;
     }
-
-    return foundObj;
 }
 
 static void cur_obj_reset_timer_and_subaction(void) {

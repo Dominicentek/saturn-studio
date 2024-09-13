@@ -1006,7 +1006,7 @@ s32 play_mode_normal(void) {
         gInitObjects++;
         area_update_objects();
     }
-    update_objects_in_list(&gObjectLists[OBJ_LIST_PLAYER]);
+    update_objects_in_list(OBJ_LIST_PLAYER);
     saturn_actor_update_all();
     update_hud_values();
 

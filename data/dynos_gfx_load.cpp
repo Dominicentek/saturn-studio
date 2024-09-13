@@ -261,27 +261,11 @@ static void LoadAnimationTable(FILE *aFile, GfxData *aGfxData) {
 //
 
 int gLoadedModelCounter = 0;
+std::map<SysPath, GfxData*> gfxdata = {};
 
 GfxData *DynOS_Gfx_LoadFromBinary(const SysPath &aPackFolder, const char *aActorName) {
-    struct DynosGfxDataCache { SysPath mPackFolder; Array<Pair<const char *, GfxData *>> mGfxData; };
-    static Array<DynosGfxDataCache *> sDynosGfxDataCache;
-
-    // Look for pack in cache
-    DynosGfxDataCache *_Pack = NULL;
-    for (s32 i = 0; i != sDynosGfxDataCache.Count(); ++i) {
-        if (sDynosGfxDataCache[i]->mPackFolder == aPackFolder) {
-            _Pack = sDynosGfxDataCache[i];
-            break;
-        }
-    }
-
-    // Look for actor in pack
-    if (_Pack) {
-        for (s32 i = 0; i != _Pack->mGfxData.Count(); ++i) {
-            if (_Pack->mGfxData[i].first == aActorName) { // Perfectly valid, aActorName comes from static RO data, so its address never changes during execution
-                return _Pack->mGfxData[i].second;
-            }
-        }
+    if (gfxdata.find(aPackFolder) != gfxdata.end()) {
+        return gfxdata[aPackFolder];
     }
 
     // Load data from binary file
@@ -307,14 +291,6 @@ GfxData *DynOS_Gfx_LoadFromBinary(const SysPath &aPackFolder, const char *aActor
         fclose(_File);
     }
 
-    // Add data to cache, even if not loaded
-    if (_Pack) {
-        _Pack->mGfxData.Add({ aActorName, _GfxData });
-    } else {
-        _Pack = New<DynosGfxDataCache>();
-        _Pack->mPackFolder = aPackFolder;
-        _Pack->mGfxData.Add({ aActorName, _GfxData });
-        sDynosGfxDataCache.Add(_Pack);
-    }
+    gfxdata.insert({ aPackFolder, _GfxData });
     return _GfxData;
 }

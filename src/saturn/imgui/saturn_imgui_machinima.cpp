@@ -8,6 +8,7 @@
 #include <map>
 #include <fstream>
 
+#include "engine/graph_node.h"
 #include "game/area.h"
 #include "saturn/libs/imgui/imgui.h"
 #include "saturn/libs/imgui/imgui_internal.h"
@@ -46,8 +47,8 @@ extern "C" {
 #include "src/game/interaction.h"
 #include "include/behavior_data.h"
 #include "game/object_helpers.h"
-#include "game/custom_level.h"
 #include "game/object_list_processor.h"
+#include "engine/surface_load.h"
 }
 
 #include "saturn/saturn_json.h"
@@ -73,11 +74,12 @@ int time_freeze_state = 0;
 int current_location_index = 0;
 char location_name[256];
 
-float custom_level_scale = 100.f;
-bool is_custom_level_loaded = false;
-std::string custom_level_path;
-std::string custom_level_filename;
-std::string custom_level_dirname;
+bool override_level = false;
+bool custom_level_loaded = false;
+struct GraphNode* override_level_geolayout;
+Collision* override_level_collision;
+
+Array<PackData *> &sDynosPacks = DynOS_Gfx_GetPacks();
 
 s16 levelList[] = { 
     LEVEL_SA, LEVEL_CASTLE_GROUNDS, LEVEL_CASTLE, LEVEL_CASTLE_COURTYARD, LEVEL_BOB, 
@@ -204,92 +206,87 @@ int get_saturn_level_id(int level) {
     }
 }
 
-std::vector<std::string> split(std::string input, char character) {
-    std::vector<std::string> tokens = {};
-    std::string token = "";
-    for (int i = 0; i < input.length(); i++) {
-        if (input[i] == '\r') continue;
-        if (input[i] == character) {
-            tokens.push_back(token);
-            token = "";
-        }
-        else token += input[i];
+Gfx* geo_switch_override_model(s32 callContext, struct GraphNode *node, UNUSED Mat4 *mtx) {
+    struct GraphNodeSwitchCase* switchCase = (struct GraphNodeSwitchCase*)node;
+    if (callContext == GEO_CONTEXT_RENDER) {
+        switchCase->selectedCase = override_level && override_level_geolayout;
     }
-    tokens.push_back(token);
-    return tokens;
-}
-std::vector<std::vector<std::string>> tokenize(std::string input) {
-    std::vector<std::vector<std::string>> tokens = {};
-    auto lines = split(input, '\n');
-    for (auto line : lines) {
-        tokens.push_back(split(line, ' '));
-    }
-    return tokens;
+    return NULL;
 }
 
-int textureIndex = 0;
-std::filesystem::path customlvl_texdir = std::filesystem::path(sys_user_path()) / "res" / "gfx" / "customlevel";
-bool custom_level_flip_normals = false;
-
-void parse_materials(char* data, std::map<std::string, filesystem::path>* materials) {
-    auto tokens = tokenize(std::string(data));
-    std::string matname = "";
-    for (auto line : tokens) {
-        if (line[0] == "newmtl") matname = line[1];
-        if (line[0] == "map_Kd" && matname != "") {
-            std::string path = std::to_string(textureIndex++) + ".png";
-            std::filesystem::path raw = std::filesystem::path(line[1]);
-            std::filesystem::path src = raw.is_absolute() ? raw : std::filesystem::path(custom_level_path).parent_path() / raw;
-            std::filesystem::path dst = customlvl_texdir / path;
-            std::filesystem::remove(dst);
-            std::filesystem::copy_file(src, dst);
-            materials->insert({ matname, "customlevel/" + path });
+#define C0(pos, width) ((dl->words.w0 >> (pos)) & ((1U << width) - 1))
+#define C1(pos, width) ((dl->words.w1 >> (pos)) & ((1U << width) - 1))
+void append_collision_data(Gfx* dl, int* cur, int* nvt, std::map<void*, int>* off, std::vector<float>* vtx, std::vector<int>* tri) {
+    bool running = true;
+    while (running) {
+        int opcode = dl->words.w0 >> 24;
+        switch (opcode) {
+            case G_DL: {
+                append_collision_data((Gfx*)dl->words.w1, cur, nvt, off, vtx, tri);
+            } break;
+            case G_VTX: {
+                Vtx* verts = (Vtx*)dl->words.w1;
+                if (off->find(verts) == off->end()) {
+                    off->insert({ verts, *nvt });
+                    int num = C0(12, 8);
+                    *nvt += num;
+                    for (int i = 0; i < num; i++) {
+                        vtx->push_back(verts[i].v.ob[0]);
+                        vtx->push_back(verts[i].v.ob[1]);
+                        vtx->push_back(verts[i].v.ob[2]);
+                    }
+                }
+                *cur = (*off)[verts];
+            } break;
+            case G_TRI1: {
+                tri->push_back(C0(16, 8) / 2 + *cur);
+                tri->push_back(C0( 8, 8) / 2 + *cur);
+                tri->push_back(C0( 0, 8) / 2 + *cur);
+            } break;
+            case G_TRI2: {
+                tri->push_back(C0(16, 8) / 2 + *cur);
+                tri->push_back(C0( 8, 8) / 2 + *cur);
+                tri->push_back(C0( 0, 8) / 2 + *cur);
+                tri->push_back(C1(16, 8) / 2 + *cur);
+                tri->push_back(C1( 8, 8) / 2 + *cur);
+                tri->push_back(C1( 0, 8) / 2 + *cur);
+            } break;
+            case G_ENDDL: {
+                running = false;
+            } break;
         }
+        dl++;
     }
 }
 
-void parse_custom_level(char* data) {
-    auto tokens = tokenize(std::string(data));
-    textureIndex = 0;
-    if (std::filesystem::exists(customlvl_texdir)) std::filesystem::remove_all(customlvl_texdir);
-    std::filesystem::create_directories(customlvl_texdir);
-    custom_level_new();
-    std::vector<std::array<float, 3>> vertices = {};
-    std::vector<std::array<float, 2>> uv = {};
-    std::map<std::string, filesystem::path> materials = {};
-    for (auto line : tokens) {
-        if (line.size() == 0) continue;
-        if (line[0] == "mtllib") {
-            filesystem::path path = filesystem::absolute(std::filesystem::path(custom_level_dirname) / line[1]);
-            if (!filesystem::exists(path)) continue;
-            auto size = filesystem::file_size(path);
-            char* mtldata = (char*)malloc(size);
-            std::ifstream file = std::ifstream(path, std::ios::binary);
-            file.read(mtldata, size);
-            parse_materials(mtldata, &materials);
-            free(mtldata);
+Collision* create_collision_mesh(struct GraphNode* node) {
+    if (node == NULL) return NULL;
+    if (node->type == GRAPH_NODE_TYPE_DISPLAY_LIST) {
+        struct GraphNodeDisplayList* dlnode = (struct GraphNodeDisplayList*)node;
+        Gfx* dl = (Gfx*)dlnode->displayList;
+        std::vector<float>   vtx = {};
+        std::vector<int>     tri = {};
+        std::map<void*, int> off = {};
+        int                  nvt = 0;
+        int                  cur = 0;
+        append_collision_data(dl, &cur, &nvt, &off, &vtx, &tri);
+        Collision* coll = (Collision*)malloc(sizeof(s16) * (6 + vtx.size() + tri.size()));
+        int ptr = 0;
+        coll[ptr++] = TERRAIN_LOAD_VERTICES;
+        coll[ptr++] = vtx.size() / 3;
+        for (int i = 0; i < vtx.size(); i++) {
+            coll[ptr++] = vtx[i];
         }
-        if (line[0] == "v") vertices.push_back({ std::stof(line[1]), std::stof(line[2]), std::stof(line[3]) });
-        if (line[0] == "vt") uv.push_back({ std::stof(line[1]), std::stof(line[2]) });
-        if (line[0] == "usemtl") {
-            if (materials.find(line[1]) == materials.end()) continue; 
-            custom_level_texture((char*)materials[line[1]].c_str());
+        coll[ptr++] = SURFACE_DEFAULT;
+        coll[ptr++] = tri.size() / 3;
+        for (int i = 0; i < tri.size(); i++) {
+            coll[ptr++] = tri[i];
         }
-        if (line[0] == "f") {
-            for (int i = 1; i < line.size(); i++) {
-                int idx = i;
-                if      (custom_level_flip_normals && idx == 1) idx = 3;
-                else if (custom_level_flip_normals && idx == 3) idx = 1;
-                auto indexes = split(line[idx], '/');
-                int v = std::stoi(indexes[0]) - 1;
-                int vt = std::stoi(indexes[1]) - 1;
-                custom_level_vertex(vertices[v][0] * custom_level_scale, vertices[v][1] * custom_level_scale, vertices[v][2] * custom_level_scale, uv[vt][0] * 1024, uv[vt][1] * 1024);
-            }
-            custom_level_face();
-        }
+        coll[ptr++] = TERRAIN_LOAD_CONTINUE;
+        coll[ptr++] = TERRAIN_LOAD_END;
+        return coll;
     }
-    gfx_precache_textures();
-    custom_level_finish();
+    return create_collision_mesh(node->children);
 }
 
 void smachinima_imgui_init() {
@@ -349,6 +346,7 @@ void imgui_machinima_quick_options() {
 
         if (ImGui::Button("Warp to Level")) {
             autoChroma = false;
+            override_level = false;
 
             warp_to_level(current_slevel_index, current_warp_area, 1);
             // Erase existing timelines
@@ -361,6 +359,45 @@ void imgui_machinima_quick_options() {
                 enabled_acts[i] = !enabled_acts[i];
             }
             imgui_bundled_tooltip((std::string(enabled_acts[i] ? "Disable" : "Enable") + " act " + std::to_string(i + 1) + " objects").c_str());
+        }
+
+        if (gCurrLevelNum == LEVEL_SA) {
+            if (ImGui::Checkbox("Load Level Model", &override_level)) {
+                gCurrentArea->terrainData = 
+                    override_level && override_level_collision ?
+                        override_level_collision :
+                        gAreas[gCurrAreaIndex].terrainDataOrig;
+                load_area_terrain(gCurrAreaIndex, gCurrentArea->terrainData, gCurrentArea->surfaceRooms, NULL);
+            }
+            if (override_level) {
+                Array<PackData*>& sDynosPacks = DynOS_Gfx_GetPacks();
+                ImGui::BeginChild("##level_model_select", ImVec2(0, 120), ImGuiChildFlags_Border);
+                for (Model& model : model_list) {
+                    if (model.Type != "level") continue;
+                    GfxData* gfx = DynOS_Gfx_LoadFromBinary(sDynosPacks[model.DynOSId]->mPath, "mario_geo");
+                    GraphNode* geo = (GraphNode*)DynOS_Geo_GetGraphNode((*(gfx->mGeoLayouts.end() - 1))->mData, true);
+                    bool selected = geo == override_level_geolayout;
+                    if (ImGui::Selectable(model.Name.c_str(), selected)) {
+                        if (override_level_collision) {
+                            free(override_level_collision);
+                            override_level_collision = NULL;
+                        }
+                        override_level_geolayout = geo;
+                        override_level_collision = create_collision_mesh(geo);
+                        gCurrentArea->terrainData = override_level_collision;
+                        load_area_terrain(gCurrAreaIndex, gCurrentArea->terrainData, gCurrentArea->surfaceRooms, NULL);
+                    }
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::BeginTooltip();
+                        ImGui::TextDisabled("%s - by", model.Version.c_str());
+                        ImGui::SameLine();
+                        ImGui::Text("%s", model.Author.c_str());
+                        ImGui::Text("%s", model.Description.c_str());
+                        ImGui::EndTooltip();
+                    }
+                }
+                ImGui::EndChild();
+            }
         }
 
         /*auto locations = saturn_get_locations();
@@ -540,17 +577,11 @@ void imgui_machinima_quick_options() {
         world_simulation_curr_frame = 0;
         if (saturn_timeline_exists("k_worldsim_frame")) k_frame_keys.erase("k_worldsim_frame");
     }
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!world_simulation_data);
-    if (ImGui::Button(ICON_FK_TRASH)) {
-        saturn_clear_simulation();
-        if (saturn_timeline_exists("k_worldsim_frame")) k_frame_keys.erase("k_worldsim_frame");
-    }
     if (ImGui::IsItemHovered()) {
         ImGui::BeginTooltip();
         const char* units[] = { "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
         int unitIndex = 0;
-        size_t bytes = sizeof(gObjectPool) * frames_to_simulate;
+        size_t bytes = sizeof(gObjectPool) * (frames_to_simulate / configWorldsimSteps);
         int fraction = 0;
         while (unitIndex < sizeof(units) / sizeof(*units) && bytes >= 1024) {
             unitIndex++;
@@ -561,47 +592,22 @@ void imgui_machinima_quick_options() {
         else ImGui::Text("Memory Usage: %.2f %s", fraction / 1024.f + bytes, units[unitIndex]);
         ImGui::EndTooltip();
     }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!world_simulation_data);
+    if (ImGui::Button(ICON_FK_TRASH)) {
+        saturn_clear_simulation();
+        if (saturn_timeline_exists("k_worldsim_frame")) k_frame_keys.erase("k_worldsim_frame");
+    }
     int frame = world_simulation_curr_frame;
     if (ImGui::SliderInt("Simulation Frame", &frame, 0, world_simulation_frames - 1, "%d", ImGuiSliderFlags_AlwaysClamp)) {
         world_simulation_curr_frame = frame;
     }
     saturn_keyframe_popout("k_worldsim_frame");
     ImGui::EndDisabled();
-
-    UNSTABLE
-    if (ImGui::BeginMenu("(!) Custom Level")) {
-        bool in_custom_level = gCurrLevelNum == LEVEL_SA && gCurrAreaIndex == 3;
-        ImGui::PushItemWidth(80);
-        ImGui::InputFloat("Scale###cl_scale", &custom_level_scale);
-        ImGui::PopItemWidth();
-        if (!is_custom_level_loaded || in_custom_level) ImGui::BeginDisabled();
-        if (ImGui::Button("Load Level")) {
-            auto size = filesystem::file_size(custom_level_path);
-            char* data = (char*)malloc(size);
-            std::ifstream file = std::ifstream((char*)custom_level_path.c_str(), std::ios::binary);
-            file.read(data, size);
-            parse_custom_level(data);
-            free(data);
-            warp_to_level(0, 3);
-        }
-        if (!is_custom_level_loaded || in_custom_level) ImGui::EndDisabled();
-        ImGui::SameLine();
-        if (ImGui::Button("Load .obj")) {
-            auto selection = choose_file_dialog("Select a model", { "Wavefront Model (.obj)", "*.obj", "All Files", "*" }, false);
-            if (selection.size() != 0) {
-                filesystem::path path = selection[0];
-                is_custom_level_loaded = true;
-                custom_level_path = path.string();
-                custom_level_dirname = path.parent_path().string();
-                custom_level_filename = path.filename().string();
-            }
-        }
-        ImGui::Text(is_custom_level_loaded ? custom_level_filename.c_str() : "No model loaded!");
-        ImGui::EndMenu();
-    }
 }
 
 static char animSearchTerm[128];
+uint64_t enabled_categories = UINT64_MAX;
 
 bool case_insensitive_contains(std::string base, std::string substr) {
     std::string lower_b = base;
@@ -616,11 +622,20 @@ bool case_insensitive_contains(std::string base, std::string substr) {
 std::vector<int> get_sorted_anim_list(MarioActor* actor) {
     std::vector<int> anim_list = {};
     std::vector<int> fav_anim_list = {};
-    for (int i = saturn_animation_obj_ranges[actor->obj_model].first; i < saturn_animation_obj_ranges[actor->obj_model].second; i++) {
-        if (!case_insensitive_contains(saturn_animation_names[i], animSearchTerm)) continue;
-        bool contains = std::find(favorite_anims.begin(), favorite_anims.end(), i) != favorite_anims.end();
-        if (contains) fav_anim_list.push_back(i);
-        else anim_list.push_back(i);
+    std::vector<int> avail_anims = saturn_animation_categories[actor->obj_model]["_"];
+    auto categories = saturn_animation_categories[actor->obj_model];
+    int iter = 0;
+    for (auto entry : categories) {
+        if (!(enabled_categories & (1 << iter++))) continue;
+        for (int i = 0; i < entry.second.size(); i++) {
+            avail_anims.push_back(entry.second[i]);
+        }
+    }
+    for (int anim : avail_anims) {
+        if (!case_insensitive_contains(saturn_animation_names[anim], animSearchTerm)) continue;
+        bool contains = std::find(favorite_anims.begin(), favorite_anims.end(), anim) != favorite_anims.end();
+        if (contains) fav_anim_list.push_back(anim);
+        else anim_list.push_back(anim);
     }
     std::reverse(fav_anim_list.begin(), fav_anim_list.end());
     for (int fav : fav_anim_list) {
@@ -677,8 +692,8 @@ struct BinaryStream* create_anim_json(int frames, u16* indices, u16* values, int
     json += "\n    ],\n";
     json += "    \"values\": [";
     for (int i = 0; i < num_values; i++) {
+        if (i % 6 == 0) json += "\n        ";
         json += format_string("\"0x%02X\",\"0x%02X\",", (values[i] >> 8) & 0xFF, values[i] & 0xFF);
-        if (i % 6 == 0 && i + 1 != num_values) json += "\n        ";
     }
     json += "\n    ]\n}\n";
     return make_stream_from_string(json);
@@ -714,12 +729,12 @@ struct BinaryStream* create_anim_panim(int frames, u16* indices, u16* values, in
     stream->length = 80 + (num_values + num_indices) * 2;
     stream->data = (unsigned char*)malloc(stream->length);
     memset(stream->data, 0, stream->length);
-    memcpy(stream->data + 0x00, animname, 32);
-    memcpy(stream->data + 0x20, animauthor, 32);
-    stream->data[0x40] = animlooping;
-    stream->data[0x41] =  frames       & 0xFF;
-    stream->data[0x42] = (frames >> 8) & 0xFF;
-    int ptr = 0x43;
+    memcpy(stream->data + 0x00, animname, 48);
+    memcpy(stream->data + 0x30, animauthor, 48);
+    stream->data[0x60] = animlooping;
+    stream->data[0x61] =  frames       & 0xFF;
+    stream->data[0x62] = (frames >> 8) & 0xFF;
+    int ptr = 0x63;
     memcpy(stream->data + ptr, "values", 6);
     ptr += 6;
     for (int i = 0; i < num_values; i++) {
@@ -761,6 +776,20 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
     if (ImGui::BeginTabBar("###anim_tab_bar")) {
         if (ImGui::BeginTabItem("SM64")) {
             ImGui::PushItemWidth(316);
+            if (ImGui::BeginCombo("##anim_filters", "Filters...")) {
+                auto filters = saturn_animation_categories[actor->obj_model];
+                int iter = 0;
+                for (auto entry : filters) {
+                    if (entry.first == "_") continue;
+                    bool checked = enabled_categories & (1 << iter);
+                    if (ImGui::Checkbox(entry.first.c_str(), &checked)) {
+                        if (checked) enabled_categories |= (1 << iter);
+                        else enabled_categories &= ~(1 << iter);
+                    }
+                    iter++;
+                }
+                ImGui::EndCombo();
+            }
             ImGui::InputTextWithHint("###anim_search", ICON_FK_SEARCH " Search...", animSearchTerm, 128);
             if (ImGui::BeginChild("###anim_box_child", ImVec2(316, 100), true)) {
                 std::vector<int> anim_order = get_sorted_anim_list(actor);
@@ -872,8 +901,8 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
                 ImGui::Checkbox("Looping", &animlooping);
                 if (ImGui::Button("Export")) {
                     int frames = 1;
-                    for (int i = 1; i <= 20; i++) {
-                        std::string timelineID = saturn_keyframe_get_mario_timeline_id("k_mariobone_" + std::to_string(i), saturn_actor_indexof(actor));
+                    for (int i = 0; i <= 20; i++) {
+                        std::string timelineID = saturn_keyframe_get_mario_timeline_id("k_mariobone_" + (i == 0 ? "t" : std::to_string(i)), saturn_actor_indexof(actor));
                         if (saturn_timeline_exists(timelineID.c_str())) {
                             for (auto kf : k_frame_keys[timelineID].second) {
                                 if (frames < kf.position) frames = kf.position + 1;
@@ -881,33 +910,31 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
                         }
                     }
                     for (int i = 0; i < 60; i++) {
-                        std::string timelineID = saturn_keyframe_get_mario_timeline_id("k_objbone_" + std::to_string(i), saturn_actor_indexof(actor));
+                        std::string timelineID = saturn_keyframe_get_mario_timeline_id("k_objbone_" + (i == 0 ? "t" : std::to_string(i - 1)), saturn_actor_indexof(actor));
                         if (saturn_timeline_exists(timelineID.c_str())) {
                             for (auto kf : k_frame_keys[timelineID].second) {
                                 if (frames < kf.position) frames = kf.position + 1;
                             }
                         }
                     }
-                    int num_indices = 6 * (actor->num_bones + 1);
-                    int num_values = 3 * actor->num_bones * frames + 1;
+                    int num_indices = 6 * actor->num_bones;
+                    int num_values = 3 * actor->num_bones * frames;
                     u16* indices = (u16*)malloc(sizeof(u16) * num_indices);
                     u16* values = (u16*)malloc(sizeof(u16) * num_values);
-                    indices[0] = indices[2] = indices[4] = 1;
-                    indices[1] = indices[3] = indices[5] = 0;
-                    values[0] = 0;
                     float rotations[3 * 60];
                     for (int i = 0; i < actor->num_bones; i++) {
-                        indices[(i + 1) * 6 + 0] = indices[(i + 1) * 6 + 2] = indices[(i + 1) * 6 + 4] = frames;
-                        indices[(i + 1) * 6 + 1] = (i * 3 + 0) * frames + 1;
-                        indices[(i + 1) * 6 + 3] = (i * 3 + 1) * frames + 1;
-                        indices[(i + 1) * 6 + 5] = (i * 3 + 2) * frames + 1;
+                        indices[i * 6 + 0] = indices[i * 6 + 2] = indices[i * 6 + 4] = frames;
+                        indices[i * 6 + 1] = (i * 3 + 0) * frames;
+                        indices[i * 6 + 3] = (i * 3 + 1) * frames;
+                        indices[i * 6 + 5] = (i * 3 + 2) * frames;
                     }
                     for (int i = 0; i < frames; i++) {
                         get_animation_rotations(actor, rotations, i);
                         for (int j = 0; j < actor->num_bones; j++) {
-                            values[(j * 3 + 0) * frames + i + 1] = rotations[j * 3 + 0] / 360.f * 65536;
-                            values[(j * 3 + 1) * frames + i + 1] = rotations[j * 3 + 1] / 360.f * 65536;
-                            values[(j * 3 + 2) * frames + i + 1] = rotations[j * 3 + 2] / 360.f * 65536;
+                            float multiplier = j == 0 ? 1 : (65536 / 360.f);
+                            values[(j * 3 + 0) * frames + i] = rotations[j * 3 + 0] * multiplier;
+                            values[(j * 3 + 1) * frames + i] = rotations[j * 3 + 1] * multiplier;
+                            values[(j * 3 + 2) * frames + i] = rotations[j * 3 + 2] * multiplier;
                         }
                     }
                     for (auto timeline : k_frame_keys) {
@@ -964,7 +991,8 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
             if (ImGui::BeginTable("Bone Editor", 2)) {
                 ImGui::TableNextRow();
                 if (actor->obj_model == MODEL_MARIO) {
-#define KF_BONE_ID "k_mariobone_" + std::to_string(currbone)
+#define KF_BONE_ID "k_mariobone_" + (currbone == 1 ? "t" : std::to_string(currbone - 1))
+                    BONE_ENTRY("Translation"    );
                     BONE_ENTRY("Root"           );
                     BONE_ENTRY("Body"           );
                     BONE_ENTRY("Torso"          );
@@ -989,8 +1017,8 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
                 }
                 else {
                     for (int i = 0; i < actor->num_bones; i++) {
-#define KF_BONE_ID "k_objbone_" + std::to_string(currbone - 1)
-                        BONE_ENTRY(i == 0 ? "Root" : ("Bone " + std::to_string(i)).c_str());
+#define KF_BONE_ID "k_objbone_" + (currbone == 1 ? "t" : std::to_string(currbone - 2))
+                        BONE_ENTRY(i == 0 ? "Translation" : i == 1 ? "Root" : ("Bone " + std::to_string(i - 1)).c_str());
 #undef KF_BONE_ID
                     }
                 }

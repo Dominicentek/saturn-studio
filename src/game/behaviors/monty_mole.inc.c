@@ -33,21 +33,15 @@ static struct Object *link_objects_with_behavior(const BehaviorScript *behavior)
     const BehaviorScript *behaviorAddr;
     struct Object *obj;
     struct Object *lastObject;
-    struct ObjectNode *listHead;
 
     behaviorAddr = segmented_to_virtual(behavior);
     lastObject = NULL;
 
-    listHead = &gObjectLists[get_object_list_from_behavior(behaviorAddr)];
-
-    obj = (struct Object *) listHead->next;
-    while (obj != (struct Object *) listHead) {
-        if (obj->behavior == behaviorAddr && obj->activeFlags != ACTIVE_FLAG_DEACTIVATED) {
-            obj->parentObj = lastObject;
-            lastObject = obj;
-        }
-
-        obj = (struct Object *) obj->header.next;
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].behavior != behaviorAddr) continue;
+        obj->parentObj = lastObject;
+        lastObject = obj;
     }
 
     return lastObject;

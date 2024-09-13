@@ -13,6 +13,8 @@
 #include <string>
 
 extern std::string currently_extracting;
+extern std::string rom_path;
+extern bool prompting_for_rom;
 
 extern "C" {
 #endif

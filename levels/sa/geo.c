@@ -13,5 +13,7 @@
 
 #include "levels/sa/header.h"
 
+#include "saturn/imgui/saturn_imgui_machinima.h"
+
 #include "levels/sa/areas/1/geo.inc.c"
 #include "levels/sa/geo.inc.c"

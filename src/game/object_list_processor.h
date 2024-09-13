@@ -64,9 +64,6 @@ enum ObjectList
     NUM_OBJ_LISTS
 };
 
-
-extern struct ObjectNode gObjectListArray[];
-
 extern s32 gDebugInfoFlags;
 extern s32 gNumFindFloorMisses;
 extern UNUSED s32 unused_8033BEF8;
@@ -87,7 +84,6 @@ extern s16 gDebugInfoOverwrite[][8];
 extern u32 gTimeStopState;
 extern struct Object gObjectPool[];
 extern struct Object gMacroObjectDefaultParent;
-extern struct ObjectNode *gObjectLists;
 extern struct ObjectNode gFreeObjectList;
 
 extern struct Object *gMarioObject;
@@ -128,7 +124,7 @@ void spawn_objects_from_info(UNUSED s32 unused, struct SpawnInfo *spawnInfo);
 void clear_objects(void);
 void update_objects(UNUSED s32 unused);
 void initialize_object(struct Object* obj);
-s32 update_objects_in_list(struct ObjectNode* list);
+s32 update_objects_in_list(int list);
 
 
 #endif // OBJECT_LIST_PROCESSOR_H

@@ -37,8 +37,6 @@ static s32 RetrieveCurrentAnimationIndex(struct Object *aObject) {
     return -1;
 }
 
-std::map<SysPath, GfxData*> gfxdata = {};
-
 // Must be called twice, before and after geo_set_animation_globals
 void DynOS_Gfx_SwapAnimations(void *aPtr) {
     static Animation *pDefaultAnimation = NULL;
@@ -68,7 +66,7 @@ void DynOS_Gfx_SwapAnimations(void *aPtr) {
         }
 
         // Gfx data
-        GfxData *_GfxData = gfxdata[pDynosPacks[_Actor->selected_model]->mPath];
+        GfxData *_GfxData = DynOS_Gfx_LoadFromBinary(pDynosPacks[_Actor->selected_model]->mPath, "mario_geo");
         if (!_GfxData) {
             return;
         }
@@ -109,7 +107,7 @@ void DynOS_Gfx_SwapAnimations(void *aPtr) {
 //
 
 void DynOS_Gfx_Update() {
-    if (gObjectLists) {
+    if (gMarioObject) {
 
         // Loop through all object lists
         MarioActor* _Actor = gMarioActorList;
@@ -129,11 +127,7 @@ void DynOS_Gfx_Update() {
 
             if (_Object->header.gfx.sharedChild) {
                 if (_Object->header.gfx.sharedChild && _Actor->selected_model != -1) {
-                    if (gfxdata.find(pDynosPacks[_Actor->selected_model]->mPath) == gfxdata.end()) {
-                        GfxData* _GfxData = DynOS_Gfx_LoadFromBinary(pDynosPacks[_Actor->selected_model]->mPath, "mario_geo");
-                        gfxdata.insert({ pDynosPacks[_Actor->selected_model]->mPath, _GfxData });
-                    }
-                    GfxData* _GfxData = gfxdata[pDynosPacks[_Actor->selected_model]->mPath];
+                    GfxData* _GfxData = DynOS_Gfx_LoadFromBinary(pDynosPacks[_Actor->selected_model]->mPath, "mario_geo");
                     _Object->header.gfx.sharedChild = (GraphNode*)DynOS_Geo_GetGraphNode((*(_GfxData->mGeoLayouts.end() - 1))->mData, true);
                 }
                 else {

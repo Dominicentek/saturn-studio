@@ -196,6 +196,7 @@ bool saturn_project_mario_actor_handler(SaturnFormatStream* stream, int version)
         }
     }
     if (actor->selected_model != -1) {
+        actor->selected_model = -1;
         for (int i = 0; i < model_list.size(); i++) {
             if (model_list[i].Name == modelname) {
                 actor->selected_model = i;
@@ -220,7 +221,7 @@ bool saturn_project_mario_actor_handler(SaturnFormatStream* stream, int version)
         }
     }
     if (version >= 4) actor->num_bones = saturn_format_read_int8(stream);
-    else actor->num_bones = 20;
+    else actor->num_bones = 21;
     for (int i = 0; i < actor->num_bones; i++) {
         actor->bones[i][0] = saturn_format_read_float(stream);
         actor->bones[i][1] = saturn_format_read_float(stream);

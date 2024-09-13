@@ -149,7 +149,9 @@ struct Object* saturn_camera_object = nullptr;
 bool setting_mario_struct_pos = false;
 
 struct Object (*world_simulation_data)[960] = nullptr;
+u16* world_simulation_seeds = nullptr;
 int world_simulation_frames = 0;
+int world_simulation_prev_frame = 0;
 float world_simulation_curr_frame = 0;
 u16 world_simulation_seed = 0;
 
@@ -167,9 +169,62 @@ void saturn_clear_simulation() {
     if (!world_simulation_data) return;
     memcpy(gObjectPool, world_simulation_data[0], sizeof(*world_simulation_data));
     free(world_simulation_data);
+    free(world_simulation_seeds);
     world_simulation_frames = 0;
     world_simulation_curr_frame = 0;
     world_simulation_data = nullptr;
+}
+
+void saturn_simulation_step(int frame) {
+    simulating_world = true;
+    Vec3f prevMarioStructPos;
+    float prevMarioStructAngle = gMarioState->fAngle;
+    vec3f_copy(prevMarioStructPos, gMarioState->pos);
+    saturn_keyframe_apply("k_mariostruct_x", frame);
+    saturn_keyframe_apply("k_mariostruct_y", frame);
+    saturn_keyframe_apply("k_mariostruct_z", frame);
+    saturn_keyframe_apply("k_mariostruct_angle", frame);
+    gMarioObject->oPosX = gMarioState->pos[0];
+    gMarioObject->oPosY = gMarioState->pos[1];
+    gMarioObject->oPosZ = gMarioState->pos[2];
+    area_update_objects();
+    Gfx* head = gDisplayListHead;
+    geo_process_root(gCurrentArea->unk04, NULL, NULL, 0);
+    gDisplayListHead = head;
+    for (Gfx* gfx : gfxs) {
+        free(gfx);
+    }
+    gfxs.clear();
+    vec3f_copy(gMarioState->pos, prevMarioStructPos);
+    gMarioState->fAngle = prevMarioStructAngle;
+    simulating_world = false;
+}
+
+void saturn_simulation_update() {
+    int prev = world_simulation_prev_frame;
+    int curr = world_simulation_curr_frame;
+    if (prev == curr) return;
+
+    struct GraphNodeObject_sub animdata;
+    memcpy(&animdata, &gMarioObject->header.gfx.unk38, sizeof(animdata));
+
+    int sample_frame_prev = prev / configWorldsimSteps;
+    int sample_frame_curr = curr / configWorldsimSteps;
+    int start_from = prev;
+    if (sample_frame_prev != sample_frame_curr || prev > curr) {
+        start_from = sample_frame_curr * configWorldsimSteps;
+        gRandomSeed16 = world_simulation_seeds[curr];
+        memcpy(gObjectPool, world_simulation_data[sample_frame_curr], sizeof(*world_simulation_data));
+    }
+
+    for (int i = start_from; i < curr; i++) {
+        saturn_simulation_step(i);
+    }
+
+    memcpy(&gMarioObject->header.gfx.unk38, &animdata, sizeof(animdata));
+    gAreaUpdateCounter = world_simulation_curr_frame;
+
+    world_simulation_prev_frame = curr;
 }
 
 void saturn_simulate(int frames) {
@@ -177,33 +232,16 @@ void saturn_simulate(int frames) {
     if (frames <= 0) return;
     simulating_world = true;
     world_simulation_frames = frames;
-    world_simulation_data = (struct Object(*)[960])malloc(sizeof(*world_simulation_data) * frames);
+    world_simulation_data = (struct Object(*)[960])malloc(sizeof(*world_simulation_data) * ceilf(frames / (float)configWorldsimSteps));
+    world_simulation_seeds = (u16*)malloc(sizeof(u16) * ceilf(frames / (float)configWorldsimSteps));
     memcpy(world_simulation_data[0], gObjectPool, sizeof(*world_simulation_data));
     world_simulation_seed = gRandomSeed16;
-    Vec3f prevMarioStructPos;
-    float prevMarioStructAngle = gMarioState->fAngle;
-    vec3f_copy(prevMarioStructPos, gMarioState->pos);
     for (int i = 1; i < frames; i++) {
-        saturn_keyframe_apply("k_mariostruct_x", i);
-        saturn_keyframe_apply("k_mariostruct_y", i);
-        saturn_keyframe_apply("k_mariostruct_z", i);
-        saturn_keyframe_apply("k_mariostruct_angle", i);
-        gMarioObject->oPosX = gMarioState->pos[0];
-        gMarioObject->oPosY = gMarioState->pos[1];
-        gMarioObject->oPosZ = gMarioState->pos[2];
-        area_update_objects();
-        Gfx* head = gDisplayListHead;
-        geo_process_root(gCurrentArea->unk04, NULL, NULL, 0);
-        gDisplayListHead = head;
-        for (Gfx* gfx : gfxs) {
-            free(gfx);
-        }
-        gfxs.clear();
-        memcpy(world_simulation_data[i], gObjectPool, sizeof(*world_simulation_data));
+        saturn_simulation_step(i);
+        if (i % configWorldsimSteps != 0) continue;
+        memcpy(world_simulation_data[i / configWorldsimSteps], gObjectPool, sizeof(*world_simulation_data));
+        world_simulation_seeds[i / configWorldsimSteps] = gRandomSeed16;
     }
-    simulating_world = false;
-    vec3f_copy(gMarioState->pos, prevMarioStructPos);
-    gMarioState->fAngle = prevMarioStructAngle;
 }
 
 extern "C" {
@@ -739,11 +777,7 @@ void saturn_update() {
     if (current_project != "") saturn_load_project((char*)current_project.c_str());
 
     if (world_simulation_data) {
-        struct GraphNodeObject_sub animdata;
-        memcpy(&animdata, &gMarioObject->header.gfx.unk38, sizeof(animdata));
-        memcpy(gObjectPool, world_simulation_data[(int)world_simulation_curr_frame], sizeof(*world_simulation_data));
-        memcpy(&gMarioObject->header.gfx.unk38, &animdata, sizeof(animdata));
-        gAreaUpdateCounter = world_simulation_curr_frame;
+        saturn_simulation_update();
     }
 
     // Autosave
@@ -1184,6 +1218,11 @@ unsigned char saturn_splash_screen_bg_data[] = {
 #include "splashdata/background.h"
 };
 
+SDL_Texture* saturn_splash_screen_rom_prompt = nullptr;
+unsigned char saturn_splash_screen_rom_prompt_data[] = {
+#include "splashdata/rom_prompt.h"
+};
+
 int load_delay = 2;
 
 struct Star {
@@ -1192,23 +1231,23 @@ struct Star {
 
 Star stars[NUM_STARS];
 
+SDL_Texture* saturn_load_splash_img(SDL_Renderer* renderer, unsigned char* data, int len, int* w, int* h) {
+    int width, height;
+    unsigned char* image_data = stbi_load_from_memory(data, len, &width, &height, nullptr, STBI_rgb_alpha);
+    SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(image_data, width, height, 32, width * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+    stbi_image_free(image_data);
+    if (w) *w = width;
+    if (h) *h = height;
+    return texture;
+}
+
+#define splashtex(id, width, height) if (saturn_splash_screen_##id == nullptr) saturn_splash_screen_##id = saturn_load_splash_img(renderer, saturn_splash_screen_##id##_data, sizeof(saturn_splash_screen_##id##_data), width, height);
 void saturn_splash_screen_init(SDL_Renderer* renderer) {
-    if (saturn_splash_screen_banner == nullptr) {
-        int width, height;
-        unsigned char* image_data = stbi_load_from_memory(saturn_splash_screen_banner_data, sizeof(saturn_splash_screen_banner_data), &width, &height, nullptr, STBI_rgb_alpha);
-        SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(image_data, width, height, 32, width * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-        saturn_splash_screen_banner = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-        saturn_splash_screen_banner_width = width;
-        saturn_splash_screen_banner_height = height;
-    }
-    if (saturn_splash_screen_bg == nullptr) {
-        int width, height;
-        unsigned char* image_data = stbi_load_from_memory(saturn_splash_screen_bg_data, sizeof(saturn_splash_screen_bg_data), &width, &height, nullptr, STBI_rgb_alpha);
-        SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(image_data, width, height, 32, width * 4, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
-        saturn_splash_screen_bg = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-    }
+    splashtex(banner, &saturn_splash_screen_banner_width, &saturn_splash_screen_banner_height);
+    splashtex(bg, NULL, NULL);
+    splashtex(rom_prompt, NULL, NULL);
     memset(stars, 0, sizeof(Star) * NUM_STARS);
     for (int i = 0; i < NUM_STARS; i++) {
         stars[i] = (Star){ .x = rand() % STAR_WIDTH - STAR_WIDTH / 2, .y = rand() % STAR_HEIGHT - STAR_HEIGHT / 2, .z = (i + 1) * STAR_SPAWN_DISTANCE };
@@ -1223,6 +1262,14 @@ void saturn_splash_screen_update_stars() {
 }
 
 bool saturn_splash_screen_update(SDL_Renderer* renderer) {
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) exit(0);
+        if (event.type == SDL_DROPFILE) {
+            rom_path = event.drop.file;
+            prompting_for_rom = false;
+        }
+    }
     SDL_Rect rect = (SDL_Rect){
         .x = 0,
         .y = 0,
@@ -1251,14 +1298,12 @@ bool saturn_splash_screen_update(SDL_Renderer* renderer) {
         .h = saturn_splash_screen_banner_height
     };
     SDL_RenderCopy(renderer, saturn_splash_screen_banner, &src, &dst);
+    if (prompting_for_rom) SDL_RenderCopy(renderer, saturn_splash_screen_rom_prompt, &rect, &rect);
     if (!saturn_begin_extract_rom_thread()) {
         if (extraction_progress >= 0) {
-            SDL_Rect rect1 = (SDL_Rect){ .x = 16, .y = 360 - 32, .w = 640 - 32, .h = 16 };
-            SDL_Rect rect2 = (SDL_Rect){ .x = 16, .y = 360 - 32, .w = (640 - 32) * extraction_progress, .h = 16 };
-            SDL_SetRenderDrawColor(renderer, 127, 127, 127, 255);
-            SDL_RenderFillRect(renderer, &rect1);
+            SDL_Rect progress = (SDL_Rect){ .x = 16, .y = 360 - 32, .w = (640 - 32) * extraction_progress, .h = 16 };
             SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_RenderFillRect(renderer, &rect2);
+            SDL_RenderFillRect(renderer, &progress);
         }
         return false;
     }

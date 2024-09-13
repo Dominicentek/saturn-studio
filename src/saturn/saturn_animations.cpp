@@ -323,14 +323,13 @@ void load_animation(struct Animation* out, int index) {
 
 void saturn_sample_animation(MarioActor* actor, struct Animation* anim, int frame) {
     const u16* curindex = anim->index;
-    curindex += 6;
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 21; i++) {
         for (int j = 0; j < 3; j++) {
             int valindex = 0;
             if (frame < curindex[0]) valindex = curindex[1] + frame;
             else valindex = curindex[1] + curindex[0] - 1;
             curindex += 2;
-            actor->bones[i][j] = (float)(anim->values[valindex]) * 360.f / 65536.f;
+            actor->bones[i][j] = (float)(anim->values[valindex]) * (i == 0 ? 1 : 360.f / 65536.f);
         }
     }
 }

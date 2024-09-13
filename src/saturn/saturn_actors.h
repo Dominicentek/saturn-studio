@@ -56,7 +56,7 @@ public:
     int custom_bone_iter = 0;
     float anim_state = 0;
     Vec3f scaler[3];
-    int num_bones = 20;
+    int num_bones = 21;
     Vec3f bones[60];
     Model model = Model();
     ModelID obj_model;
@@ -103,6 +103,7 @@ extern "C" {
     void saturn_actor_bone_override_begin();
     bool saturn_actor_bone_should_override();
     void saturn_actor_bone_iterate();
+    void saturn_actor_bone_iterate_back();
     void saturn_actor_bone_do_override(Vec3s rotation);
     int saturn_actor_get_support_flags(int marioIndex);
     void saturn_actor_start_recording(int index);
