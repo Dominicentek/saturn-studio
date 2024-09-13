@@ -23,7 +23,7 @@ Array<String> DynOS_Gfx_Init() {
 
     // Scan the DynOS packs folder
     Array<PackData *> &pDynosPacks = DynOS_Gfx_GetPacks();
-    SysPath _DynosPacksFolder = fstring("%s/%s", DYNOS_EXE_FOLDER, DYNOS_PACKS_FOLDER);
+    SysPath _DynosPacksFolder = fstring("%s/%s", DYNOS_USER_FOLDER, DYNOS_PACKS_FOLDER);
     DIR *_DynosPacksDir = opendir(_DynosPacksFolder.c_str());
     if (_DynosPacksDir) {
         struct dirent *_DynosPacksEnt = NULL;

@@ -100,3 +100,8 @@ res/sound
 !/res/gfx/levels/intro/5_ring.rgba16.png
 !/res/gfx/actors/mario/no_m.rgba16.png
 imgui.ini
+
+# AppImage
+AppDir/*
+*.AppImage*
+squashfs-root/*

@@ -2,7 +2,7 @@
 #define SaturnEmbeddedFilesystem_H
 
 #include <vector>
-#include <filesystem>
+#include "../saturn.h"
 
 struct File {
     int type;
@@ -28,8 +28,8 @@ struct FileEntry {
     std::vector<struct FileEntry> _3;
 };
 
-struct FileEntry saturn_embedded_filesystem_from_local_storage(std::filesystem::path path);
-void saturn_embedded_filesystem_to_local_storage(struct FileEntry* entry, std::filesystem::path dest);
+struct FileEntry saturn_embedded_filesystem_from_local_storage(fs::path path);
+void saturn_embedded_filesystem_to_local_storage(struct FileEntry* entry, fs::path dest);
 void saturn_embedded_filesystem_free(struct FileEntry* entry);
 
 #endif

@@ -306,6 +306,11 @@ int main(int argc, char *argv[]) {
     init_crash_handler();
     parse_cli_opts(argc, argv);
 
+#ifdef FILE_PICKER
+    // Copy custom assets (required in some form for AppImage, Android and OpenBSD. Tested at present in unsandboxed and AppImage configurations)
+    if (copy_custom_assets()) return 1;
+#endif
+
     // Extract assets
     if (gCLIOpts.ExtractOnly) {
         saturn_extract_rom(EXTRACT_TYPE_ALL);

@@ -80,6 +80,8 @@ extern float game_viewport[4];
 
 extern bool request_mario_tab;
 
+extern fs::path imgui_config_path;
+
 extern "C" {
 #endif
     bool saturn_imgui_is_capturing_transparent_video();

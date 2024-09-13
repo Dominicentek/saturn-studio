@@ -1,6 +1,5 @@
 #include "saturn_imgui.h"
 
-#include <filesystem>
 #include <ios>
 #include <string>
 #include <iostream>
@@ -77,6 +76,7 @@
 extern "C" {
 #include "pc/gfx/gfx_pc.h"
 #include "pc/configfile.h"
+#include "pc/platform.h"
 #include "game/mario.h"
 #include "game/game_init.h"
 #include "game/camera.h"
@@ -248,8 +248,8 @@ ImGuiDir to_dir(std::string dir) {
 }
 
 void imgui_custom_theme(std::string theme_name) {
-    std::filesystem::path path = std::filesystem::path("dynos/themes/" + theme_name + ".json");
-    if (!std::filesystem::exists(path)) return;
+    fs::path path = fs::path(std::string(sys_user_path()) + "/dynos/themes/" + theme_name + ".json");
+    if (!fs::exists(path)) return;
     std::ifstream file = std::ifstream(path);
     Json::Value json;
     json << file;
@@ -383,18 +383,20 @@ void imgui_update_theme() {
         symbolConfig.SizePixels = 13.0f * SCALE;
         symbolConfig.GlyphMinAdvanceX = 13.0f * SCALE; // Use if you want to make the icon monospaced
         static const ImWchar icon_ranges[] = { ICON_MIN_FK, ICON_MAX_FK, 0 };
-        io.Fonts->AddFontFromFileTTF("fonts/forkawesome-webfont.ttf", symbolConfig.SizePixels, &symbolConfig, icon_ranges);
+        std::string fontPath = std::string(sys_user_path()) + "/fonts/forkawesome-webfont.ttf";
+        io.Fonts->AddFontFromFileTTF(fontPath.c_str(), symbolConfig.SizePixels, &symbolConfig, icon_ranges);
     }
 
     // backwards compatibility with older theme settings
     editor_theme = "legacy";
+    fs::path dynos_themes_dir_path = fs::path(std::string(sys_user_path())) / "dynos" / "themes";
     if (configEditorTheme == 1) editor_theme = "moon";
     else if (configEditorTheme == 2) editor_theme = "halflife";
     else if (configEditorTheme == 3) editor_theme = "moviemaker";
     else if (configEditorTheme == 4) editor_theme = "dear";
-    else if (std::filesystem::exists("dynos/themes")) {
-        for (const auto& entry : std::filesystem::directory_iterator("dynos/themes")) {
-            std::filesystem::path path = entry.path();
+    else if (fs::exists(dynos_themes_dir_path)) {
+        for (const auto& entry : fs::directory_iterator(dynos_themes_dir_path)) {
+            fs::path path = entry.path();
             if (path.extension().string() != ".json") continue;
             std::string name = path.filename().string();
             name = name.substr(0, name.length() - 5);
@@ -569,10 +571,14 @@ void saturn_imgui_set_frame_buffer(void* fb, bool do_capture) {
 
 // Set up ImGui
 
+fs::path imgui_config_path;
 bool imgui_config_exists = false;
 std::map<std::string, bool> visible_windows = {};
 
 void saturn_imgui_create_dockspace_layout(ImGuiID dockspace) {
+    char windows_bin_path[SYS_MAX_PATH] = "";
+    strncat(windows_bin_path,  sys_user_path(), SYS_MAX_PATH - 1);
+    strncat(windows_bin_path, "/windows.bin", SYS_MAX_PATH - 1);
     if (visible_windows.empty()) {
         visible_windows.insert({ "Machinima", true });
         visible_windows.insert({ "Marios", true });
@@ -580,7 +586,7 @@ void saturn_imgui_create_dockspace_layout(ImGuiID dockspace) {
         visible_windows.insert({ "Game", true });
         visible_windows.insert({ "Timeline###kf_timeline", true });
         visible_windows.insert({ "Objects", true });
-        saturn_load_window_visibility("windows.bin", &visible_windows);
+        saturn_load_window_visibility(windows_bin_path, &visible_windows);
     }
     if (imgui_config_exists) return;
     imgui_config_exists = true;
@@ -635,7 +641,8 @@ bool saturn_imgui_window(const char* title, ImGuiWindowFlags extra_flags = ImGui
 void saturn_imgui_init_backend(SDL_Window * sdl_window, SDL_GLContext ctx) {
     window = sdl_window;
 
-    imgui_config_exists = std::filesystem::exists("imgui.ini");
+    imgui_config_path = fs::path(std::string(sys_user_path()) + "/imgui.ini");
+    imgui_config_exists = fs::exists(imgui_config_path);
 
     const char* glsl_version = "#version 120";
     ImGuiContext* imgui = ImGui::CreateContext();
@@ -654,9 +661,10 @@ void saturn_imgui_init_backend(SDL_Window * sdl_window, SDL_GLContext ctx) {
 }
 
 void saturn_load_themes() {
-    if (!std::filesystem::exists("dynos/themes")) return;
-    for (const auto& entry : std::filesystem::directory_iterator("dynos/themes")) {
-        std::filesystem::path path = entry.path();
+    fs::path dynos_themes_dir_path = fs::path(std::string(sys_user_path())) / "dynos" / "themes";
+    if (!fs::exists(dynos_themes_dir_path)) return;
+    for (const auto& entry : fs::directory_iterator(dynos_themes_dir_path)) {
+        fs::path path = entry.path();
         if (path.extension().string() != ".json") continue;
         std::string id = path.filename().string();
         id = id.substr(0, id.length() - 5);
@@ -676,14 +684,16 @@ void saturn_load_themes() {
 }
 
 void saturn_load_textures() {
-    if (!std::filesystem::exists("dynos/textures")) {
-        std::filesystem::create_directory("dynos/textures");
+    fs::path dynos_texture_dir = fs::path(sys_user_path()) / "dynos/textures";
+    if (!fs::exists(dynos_texture_dir)) {
+        fs::create_directory(dynos_texture_dir);
     }
-    for (const auto& entry : std::filesystem::directory_iterator("dynos/textures")) {
-        if (!entry.is_directory()) continue;
-        std::string name = entry.path().filename().string();
+    for (const auto& entry : fs::directory_iterator(dynos_texture_dir)) {
+        fs::path path = entry.path();
+        if (!fs::is_directory(path)) continue;
+        std::string name = path.filename().string();
         if (string_hash(name.data(), 0, name.length()) == configEditorTextures) current_texture_id = textures_list.size();
-        textures_list.push_back(entry.path().filename().string());
+        textures_list.push_back(path.filename().string());
     }
 }
 
@@ -720,8 +730,8 @@ bool is_ffmpeg_installed() {
     }
     paths.push_back(word);
     for (std::string p : paths) {
-        std::filesystem::path fsPath = std::filesystem::path(p) / ("ffmpeg" + suffix);
-        if (std::filesystem::exists(fsPath)) return true;
+        fs::path fsPath = fs::path(p) / ("ffmpeg" + suffix);
+        if (fs::exists(fsPath)) return true;
     }
     return false;
 }
@@ -986,6 +996,10 @@ int num_objects_as_actors = 0;
 void saturn_imgui_update() {
     if (!splash_finished) return;
 
+    char windows_bin_path[SYS_MAX_PATH] = "";
+    strncat(windows_bin_path,  sys_user_path(), SYS_MAX_PATH - 1);
+    strncat(windows_bin_path, "/windows.bin", SYS_MAX_PATH - 1);
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window);
     ImGui::NewFrame();
@@ -1003,7 +1017,7 @@ void saturn_imgui_update() {
 
         if (ImGui::BeginMenu("Open Project")) {
             saturn_file_browser_filter_extension("spj");
-            saturn_file_browser_scan_directory("dynos/projects");
+            saturn_file_browser_scan_directory(std::string(sys_user_path()) + "/dynos/projects");
             if (saturn_file_browser_show("project")) {
                 std::string str = saturn_file_browser_get_selected().string();
                 str = str.substr(0, str.length() - 4); // trim the extension
@@ -1032,7 +1046,7 @@ void saturn_imgui_update() {
                         models_folder.entries = {};
                         strncpy(models_folder.name, "packs", 255);
                         for (std::string model : embedded_models) {
-                            models_folder.entries.push_back(saturn_embedded_filesystem_from_local_storage("dynos/packs/" + model));
+                            models_folder.entries.push_back(saturn_embedded_filesystem_from_local_storage(std::string(sys_user_path()) + "/dynos/packs/" + model));
                         }
                         folder.entries.push_back(*(struct FileEntry*)&models_folder);
                     }
@@ -1042,10 +1056,10 @@ void saturn_imgui_update() {
                         anims_folder.entries = {};
                         strncpy(anims_folder.name, "anims", 255);
                         for (std::string anim : embedded_anims) {
-                            std::filesystem::path path = std::filesystem::path("dynos/anims") / anim;
+                            fs::path path = fs::path(std::string(sys_user_path()) + "/dynos/anims") / anim;
                             struct File animfile;
                             animfile.type = 0;
-                            animfile.data_length = std::filesystem::file_size(path);
+                            animfile.data_length = fs::file_size(path);
                             animfile.data = (unsigned char*)malloc(animfile.data_length);
                             strncpy(animfile.name, anim.c_str(), 255);
                             std::ifstream stream = std::ifstream(path);
@@ -1061,10 +1075,10 @@ void saturn_imgui_update() {
                         eyes_folder.entries = {};
                         strncpy(eyes_folder.name, "eyes", 255);
                         for (std::string eye : embedded_eyes) {
-                            std::filesystem::path path = std::filesystem::path("dynos/eyes") / eye;
+                            fs::path path = fs::path(std::string(sys_user_path()) + "/dynos/eyes") / eye;
                             struct File eyefile;
                             eyefile.type = 0;
-                            eyefile.data_length = std::filesystem::file_size(path);
+                            eyefile.data_length = fs::file_size(path);
                             eyefile.data = (unsigned char*)malloc(eyefile.data_length);
                             strncpy(eyefile.name, eye.c_str(), 255);
                             std::ifstream stream = std::ifstream(path);
@@ -1611,7 +1625,7 @@ void saturn_imgui_update() {
                     for (auto& window : visible_windows) {
                         if (ImGui::MenuItem(window.first.c_str(), NULL, window.second)) {
                             window.second ^= 1;
-                            saturn_save_window_visibility("windows.bin", &visible_windows);
+                            saturn_save_window_visibility(windows_bin_path, &visible_windows);
                         }
                     }
                     ImGui::EndMenu();

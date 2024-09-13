@@ -967,6 +967,9 @@ CODE
 #ifndef IMGUI_DISABLE
 #include "imgui_internal.h"
 
+// Saturn AppImage custom imgui.ini path
+#include "saturn/imgui/saturn_imgui.h"
+
 // System includes
 #include <stdio.h>      // vsnprintf, sscanf, printf
 #include <stdint.h>     // intptr_t
@@ -1302,7 +1305,8 @@ ImGuiIO::ImGuiIO()
     DisplaySize = ImVec2(-1.0f, -1.0f);
     DeltaTime = 1.0f / 60.0f;
     IniSavingRate = 5.0f;
-    IniFilename = "imgui.ini"; // Important: "imgui.ini" is relative to current working dir, most apps will want to lock this to an absolute path (e.g. same path as executables).
+    std::string imgui_config_path_str = imgui_config_path.string();
+    strncpy(IniFilename, imgui_config_path_str.c_str(), 4096); // Important: "imgui.ini" is relative to current working dir, most apps will want to lock this to an absolute path (e.g. same path as executables).
     LogFilename = "imgui_log.txt";
 #ifndef IMGUI_DISABLE_OBSOLETE_KEYIO
     for (int i = 0; i < ImGuiKey_COUNT; i++)

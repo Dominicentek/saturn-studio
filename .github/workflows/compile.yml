@@ -1,9 +1,14 @@
 name: Compile
 
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
+  release:
+    types:
+      - published
 
 jobs:
   windows:
+    if: github.event_name != 'release'
     name: Windows (MSYS2)
 
     runs-on: windows-latest
@@ -30,6 +35,7 @@ jobs:
         path: D:\a\saturn-studio\saturn-studio\build\us_pc\
 
   linux:
+    if: github.event_name != 'release'
     name: Linux
 
     runs-on: ubuntu-latest
@@ -50,3 +56,56 @@ jobs:
       with:
         name: saturn-${{ github.run_number }}-${{ github.job }}
         path: /home/runner/work/saturn-studio/saturn-studio/build/us_pc
+
+  linux-appimage:
+    name: Linux (AppImage) (glibc 2.28) (x86_64)
+    runs-on: ubuntu-latest
+    container: docker
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build Saturn Studio AppImage builder image
+      run: |
+        cd platform/appimage/
+        docker build . -t saturn-appimage-builder
+    - name: Build Saturn Studio in builder image
+      run: docker run -e FILE_PICKER=1 -e DISCORDGAMESDK=0 -e DISCORDRPC=0 -e DISCORD_SDK=0 -v ${{ github.workspace }}:/saturn-studio saturn-appimage-builder make -j$(nproc)
+    - name: Install Saturn Studio to AppDir
+      run: |
+        cd build/us_pc
+        rm -rf textures text src sound lib levels include data bin assets actors res
+        rm -f level_rules.mk
+        cd ../../
+        mkdir -p AppDir/usr/bin/
+        mv build/us_pc/saturn.us.f3dex2e AppDir/usr/bin/
+        mkdir -p AppDir/custom_assets/
+        cp -r build/us_pc/* AppDir/custom_assets/
+        cp -r res/ AppDir/custom_assets/
+    - name: Install additional necessary libraries to AppDir
+      run: |
+        mkdir -p AppDir/usr/lib/
+        docker run -v ${{ github.workspace }}:/saturn-studio saturn-appimage-builder cp /usr/lib/x86_64-linux-gnu/libharfbuzz.so.0 AppDir/usr/lib/
+        docker run -v ${{ github.workspace }}:/saturn-studio saturn-appimage-builder cp /usr/lib/x86_64-linux-gnu/libthai.so.0 AppDir/usr/lib/
+    - name: Build Saturn Studio AppImage in builder image
+      run: docker run -e NO_STRIP='true' -v ${{ github.workspace }}:/saturn-studio saturn-appimage-builder /squashfs-root/AppRun --plugin gtk --icon-file res/saturn-linuxicon.png --desktop-file platform/appimage/Saturn_Studio.desktop --appdir AppDir --output appimage
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4.3.1
+      with:
+        name: saturn-${{ github.run_number }}-${{ github.job }}
+        path: 'Saturn_Studio-x86_64.AppImage'
+
+  upload-appimage:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs: linux-appimage
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4.1.4
+      - name: Upload AppImage to release
+        uses: svenstaro/upload-release-action@2.9.0
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: "**/Saturn_Studio-x86_64.AppImage"
+          file_glob: true
+          tag: ${{ github.ref }}

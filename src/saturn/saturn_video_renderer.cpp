@@ -2,11 +2,12 @@
 
 #include <cstring>
 #include <iostream>
-#include <filesystem>
 #include <cstdio>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "saturn.h"
 
 extern "C" {
 #include "pc/pngutils.h"
@@ -24,8 +25,8 @@ void pngseq_init(int w, int h, bool fps60) {
     video_width = w;
     video_height = h;
     png_counter = 0;
-    if (std::filesystem::exists("pngseq")) std::filesystem::remove_all("pngseq");
-    std::filesystem::create_directory("pngseq");
+    if (fs::exists("pngseq")) fs::remove_all("pngseq");
+    fs::create_directory("pngseq");
 }
 
 void pngseq_render(unsigned char* data) {

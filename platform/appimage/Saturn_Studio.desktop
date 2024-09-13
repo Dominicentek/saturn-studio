@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Saturn Studio
+Comment=An experimental fork of Saturn that has features originally planned for the original version
+Path=usr/bin
+Exec=saturn.us.f3dex2e
+Icon=saturn-linuxicon
+Terminal=false
+Categories=Game;Graphics;Development;AudioVideo;

@@ -293,7 +293,7 @@ void smachinima_imgui_init() {
     Cheats.EnableCheats = true;
     Cheats.GodMode = true;
     Cheats.ExitAnywhere = true;
-    current_anim_dir_path = "dynos/anims/";
+    current_anim_dir_path = std::string(sys_user_path()) + "/dynos/anims/";
 }
 
 bool enabled_acts[6];
@@ -826,19 +826,19 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
         if (ImGui::BeginTabItem("MComp")) {
             ImGui::PushItemWidth(316);
             saturn_file_browser_filter_extensions({ "json", "panim" });
-            saturn_file_browser_scan_directory("dynos/anims");
+            saturn_file_browser_scan_directory(current_anim_dir_path);
             saturn_file_browser_height(120);
             if (saturn_file_browser_show("animations")) {
                 std::string path = saturn_file_browser_get_selected().string();
                 if (std::find(canim_array.begin(), canim_array.end(), path) == canim_array.end()) canim_array.push_back(path);
                 if (sampling) {
                     sampling_anim_loaded = true;
-                    std::filesystem::path fpath = current_anim_dir_path / std::filesystem::path(path);
+                    fs::path fpath = current_anim_dir_path / fs::path(path);
                     std::ifstream stream = std::ifstream(fpath);
                     int length;
                     std::vector<s16> values, indices;
                     if (fpath.extension() == ".panim") {
-                        int filelen = std::filesystem::file_size(fpath);
+                        int filelen = fs::file_size(fpath);
                         unsigned char* data = (unsigned char*)malloc(filelen);
                         stream.read((char*)data, filelen);
                         length = (int)data[0x41] + (int)data[0x42] * 0x100;

@@ -8,9 +8,13 @@
 #ifdef __cplusplus
 #include <string>
 #include <vector>
-#include <filesystem>
 #include <iostream>
 
+#include "saturn.h"
+
+extern "C" {
+#include "pc/platform.h"
+}
 class Model;
 
 class TexturePath {
@@ -18,8 +22,12 @@ public:
     std::string FileName = "";
     std::string FilePath = "";
     /* Relative path from res/gfx, as used by EXTERNAL_DATA */
+    // For AppImages etc, I changed FilePath to be an absolute path, so now
+    // this has to be properly a conversion from absolute to relative path
     std::string GetRelativePath() {
-        return "../../" + this->FilePath;//.substr(0, this->FilePath.size() - 4);
+        // return "../../" + this->FilePath;//.substr(0, this->FilePath.size() - 4);
+        return fs_relative::relative(fs_relative::path(this->FilePath),
+               fs_relative::path(std::string(sys_user_path()) + "/res/gfx")).generic_string();
     }
     /* Parent directory, used for subfolders */
     std::string ParentPath() {
@@ -64,7 +72,7 @@ std::vector<Expression> LoadExpressions(Model*, std::string);
 
 void saturn_copy_file(std::string from, std::string to);
 void saturn_delete_file(std::string file);
-std::size_t number_of_files_in_directory(std::filesystem::path path);
+std::size_t number_of_files_in_directory(fs::path path);
 
 extern bool show_vmario_emblem;
 

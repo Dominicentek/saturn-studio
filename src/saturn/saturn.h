@@ -241,6 +241,17 @@ extern "C" {
     int saturn_splash_screen_open();
 #ifdef __cplusplus
 }
+
+// some kind of a thing for GCC 8.3.0
+#include <filesystem>
+namespace fs_relative = std::filesystem;
+/* Test for GCC <= 8.3.0 */
+#if __GNUC__ < 8 || (__GNUC__ == 8 && (__GNUC_MINOR__ < 3 || __GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__  == 0))
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
+#else
+namespace fs = std::filesystem;
+#endif
 #endif
 
 #endif

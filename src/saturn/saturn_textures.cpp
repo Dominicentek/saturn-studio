@@ -32,12 +32,11 @@ extern "C" {
 
 using namespace std;
 #include <dirent.h>
-#include <filesystem>
 #include <fstream>
 #include <algorithm>
 #include <assert.h>
 #include <stdlib.h>
-namespace fs = std::filesystem;
+namespace fs = fs;
 #include "pc/fs/fs.h"
 
 #include "saturn/saturn_json.h"
@@ -129,10 +128,12 @@ std::vector<Expression> LoadExpressions(Model* model, std::string modelFolderPat
 Expression VanillaEyes;
 /* Loads textures from dynos/eyes/ into a global Expression */
 void LoadEyesFolder(Model* model) {
+    fs::path eyes_dir_path = fs::path(std::string(sys_user_path()) + "/dynos/eyes/");
+
     // Check if the dynos/eyes/ folder exists
-    if (fs::is_directory("dynos/eyes")) {
+    if (fs::is_directory(eyes_dir_path)) {
         VanillaEyes.Name = "eyes";
-        VanillaEyes.FolderPath = "dynos/eyes";
+        VanillaEyes.FolderPath = eyes_dir_path.string();
         VanillaEyes.Textures = LoadExpressionTextures(VanillaEyes.FolderPath, VanillaEyes);
     }
     if (model->Expressions.size() == 0) model->Expressions.push_back(VanillaEyes);
@@ -335,6 +336,6 @@ void saturn_delete_file(string file) {
     remove(file.c_str());
 }
 
-std::size_t number_of_files_in_directory(std::filesystem::path path) {
-    return (std::size_t)std::distance(std::filesystem::directory_iterator{path}, std::filesystem::directory_iterator{});
+std::size_t number_of_files_in_directory(fs::path path) {
+    return (std::size_t)std::distance(fs::directory_iterator{path}, fs::directory_iterator{});
 }
