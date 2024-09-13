@@ -1081,6 +1081,8 @@ static void ParseGfxSymbol(GfxData* aGfxData, DataNode<Gfx>* aNode, Gfx*& aHead,
     gfx_symbol_4(gsDPSetFogColor);
     gfx_symbol_2(gsSPFogPosition, false);
     gfx_symbol_1(gsDPSetAlphaCompare, false);
+    gfx_symbol_1(gsDPSetAlphaDither, false);
+    gfx_symbol_1(gsDPSetTextureFilter, false);
 
     // Special symbols
     if (_Symbol == "gsSPTexture") {
