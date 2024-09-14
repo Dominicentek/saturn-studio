@@ -419,7 +419,6 @@ bool transparency_enabled = true;
 bool sixty_fps_enabled = true;
 int stop_capture = 0;
 int request_ortho_mode = 0;
-bool video_antialias = true;
 struct OrthographicRenderSettings ortho_settings = (struct OrthographicRenderSettings) {
     .scale = 1.f,
     .offset_x = 0.f,
@@ -461,8 +460,8 @@ bool saturn_imgui_get_viewport(int* width, int* height) {
     if (width == nullptr) width = &w;
     if (height == nullptr) height = &h;
     if (capturing_video) {
-        *width = videores[0] * (video_antialias + 1) + video_antialias;
-        *height = videores[1] * (video_antialias + 1) + video_antialias;
+        *width = videores[0];
+        *height = videores[1];
         return true;
     }
     if (game_viewport[2] != -1 && game_viewport[3] != -1) {
@@ -484,47 +483,14 @@ void saturn_capture_screenshot() {
     if (!capturing_video) return;
     if (video_timer-- > 0) return;
     capturing_video = false;
-    uint64_t in_width = videores[0] * (video_antialias + 1) + video_antialias;
-    uint64_t in_height = videores[0] * (video_antialias + 1) + video_antialias;
-    uint64_t in_size = (uint64_t)in_width * (uint64_t)in_height * 4;
-    uint64_t out_size = (uint64_t)videores[0] * (uint64_t)videores[1] * 4;
-    unsigned char* image = (unsigned char*)malloc(in_size);
-    unsigned char* flipped = (unsigned char*)malloc(out_size);
+    uint64_t tex_size = (uint64_t)videores[0] * (uint64_t)videores[1] * 4;
+    unsigned char* image = (unsigned char*)malloc(tex_size);
     glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)framebuffer);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
     glBindTexture(GL_TEXTURE_2D, 0);
-    for (uint64_t y = 0; y < videores[1]; y++) {
-        for (uint64_t x = 0; x < videores[0]; x++) {
-            uint64_t i = (y * in_width + x) * 4;
-            uint64_t j = ((videores[1] - y - 1) * videores[0] + x) * 4;
-            int r = 0, g = 0, b = 0, a = 0;
-            if (video_antialias) {
-                for (int X = 0; X <= 2; X++) {
-                    for (int Y = 0; Y <= 2; Y++) {
-                        uint64_t I = ((Y + y * 2) * in_height + (X + x * 2)) * 4;
-                        r += image[I + 0];
-                        g += image[I + 1];
-                        b += image[I + 2];
-                        a += image[I + 3];
-                    }
-                }
-                r /= 9.f; g /= 9.f; b /= 9.f; a /= 9.f;
-            }
-            else {
-                r = image[i + 0];
-                g = image[i + 1];
-                b = image[i + 2];
-                a = image[i + 3];
-            }
-            flipped[j + 0] = r;
-            flipped[j + 1] = g;
-            flipped[j + 2] = b;
-            flipped[j + 3] = a;
-        }
-    }
     if (keyframe_playing) {
         capturing_video = true;
-        video_renderer_render(flipped);
+        video_renderer_render(image);
         if (stop_capture > 0) {
             stop_capture--;
             if (stop_capture == 0) {
@@ -535,9 +501,8 @@ void saturn_capture_screenshot() {
             }
         }
     }
-    else pngutils_write_png("screenshot.png", (int)videores[0], (int)videores[1], 4, flipped, 0);
+    else pngutils_write_png("screenshot.png", (int)videores[0], (int)videores[1], 4, image, 0);
     free(image);
-    free(flipped);
 }
 
 bool saturn_imgui_is_capturing_video() {
@@ -1309,7 +1274,6 @@ void saturn_imgui_update() {
             bool transparency_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || orthographic_mode;
             ImGui::InputInt2("Resolution", videores);
             ImGui::Checkbox("Preview Aspect Ratio", &keep_aspect_ratio);
-            ImGui::Checkbox("Anti-aliasing", &video_antialias);
             ImGui::Checkbox("Transparency", &transparency_enabled);
             ImGui_ConditionalCheckbox("60 FPS", &sixty_fps_enabled, sixty_fps_supported && configFps60);
             if (!sixty_fps_supported) {
@@ -1558,7 +1522,11 @@ void saturn_imgui_update() {
         saturn_get_game_bounds(image_bounds, window_size);
         ImVec2 cursor_pos = ImGui::GetCursorPos();
         ImGui::SetCursorPos(ImVec2(image_bounds[0] + cursor_pos.x, image_bounds[1] + cursor_pos.y));
-        ImGui::Image(framebuffer, ImVec2(image_bounds[2], image_bounds[3]), ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+        ImGui::Image(
+            framebuffer, ImVec2(image_bounds[2], image_bounds[3]),
+            ImVec2(0.0f, capturing_video ? 0.0f : 1.0f),
+            ImVec2(1.0f, capturing_video ? 1.0f : 0.0f)
+        );
         if (is_recording) ImGui::BeginDisabled();
         ImGui::PopStyleVar();
         if (ImGui::BeginPopup("Mario Menu")) {

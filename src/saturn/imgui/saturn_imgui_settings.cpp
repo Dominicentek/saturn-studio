@@ -256,6 +256,9 @@ void ssettings_imgui_update() {
         ImGui::Checkbox("Disable near-clipping", &configEditorNearClipping);
         imgui_bundled_tooltip("Enable when some close to the camera starts clipping through. Disable if the level fog goes nuts.");
 
+        ImGui::Checkbox("Anti-aliasing", &configWindow.enable_antialias);
+        imgui_bundled_tooltip("Enable smooth edges via OpenGL.");
+
         ImGui::Dummy(ImVec2(0, 5));
 
         ImGui::Checkbox("Stretched widescreen", &configWindow.jabo_mode);
