@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://github.com/Dominicentek/saturn-studio/blob/studio/res/studio-linuxicon.png?raw=true" />
+</p>
+
 # Saturn Studio
 
 An experimental fork of [Saturn](https://github.com/Llennpie/Saturn) that has features originally planned for the original version,
