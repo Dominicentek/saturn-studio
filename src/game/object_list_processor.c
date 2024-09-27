@@ -3,6 +3,7 @@
 #include "game/game_init.h"
 #include "game/rendering_graph_node.h"
 #include "mario_animation_ids.h"
+#include "pc/configfile.h"
 #include "saturn/saturn_actors.h"
 #include "sm64.h"
 #include "area.h"
@@ -181,7 +182,7 @@ s8 sObjectListUpdateOrder[] = { OBJ_LIST_SPAWNER,
 struct ParticleProperties {
     u32 particleFlag;
     u32 activeParticleFlag;
-    u8 model;
+    u16 model;
     const BehaviorScript *behavior;
 };
 
@@ -274,7 +275,9 @@ void bhv_mario_update(void) {
     i = 0;
     while (sParticleTypes[i].particleFlag != 0) {
         if (particleFlags & sParticleTypes[i].particleFlag) {
-            spawn_particle(sParticleTypes[i].activeParticleFlag, sParticleTypes[i].model,
+            u16 model = sParticleTypes[i].model;
+            if (model == MODEL_WATER_SPLASH && configEnableShipBug) model = MODEL_JRB_SUNKEN_SHIP;
+            spawn_particle(sParticleTypes[i].activeParticleFlag, model,
                            sParticleTypes[i].behavior);
         }
 

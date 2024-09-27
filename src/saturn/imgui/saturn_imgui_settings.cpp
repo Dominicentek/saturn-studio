@@ -416,6 +416,8 @@ void ssettings_imgui_update() {
         imgui_bundled_tooltip("Makes it so you have non-water controls in water.");
         ImGui::Checkbox("Disable Neck Breaks", &configCUpLimit);
         imgui_bundled_tooltip("Limits the C-Up head rotations, just like in vanilla.\nMario's neck will be happy.");
+        ImGui::Checkbox("#justice4jrbship", &configEnableShipBug);
+        imgui_bundled_tooltip("Re-introduce the funny bug");
     }
     if (ImGui::CollapsingHeader("Editor###editor_settings")) {
         ImGui::Checkbox("Show tooltips", &configEditorShowTips);
