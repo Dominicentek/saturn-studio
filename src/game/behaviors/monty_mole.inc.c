@@ -31,7 +31,6 @@ f32 sMontyMoleLastKilledPosZ;
  */
 static struct Object *link_objects_with_behavior(const BehaviorScript *behavior) {
     const BehaviorScript *behaviorAddr;
-    struct Object *obj;
     struct Object *lastObject;
 
     behaviorAddr = segmented_to_virtual(behavior);
@@ -40,8 +39,8 @@ static struct Object *link_objects_with_behavior(const BehaviorScript *behavior)
     for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
         if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
         if (gObjectPool[i].behavior != behaviorAddr) continue;
-        obj->parentObj = lastObject;
-        lastObject = obj;
+        gObjectPool[i].parentObj = lastObject;
+        lastObject = &gObjectPool[i];
     }
 
     return lastObject;
