@@ -39,6 +39,7 @@
 #include "src/saturn/imgui/saturn_imgui.h"
 #include "src/saturn/saturn.h"
 #include "src/pc/configfile.h"
+#include "src/pc/pngutils.h"
 
 // TODO: figure out if this shit even works
 #ifdef VERSION_EU
@@ -111,6 +112,10 @@ const SDL_Scancode scancode_rmapping_nonextended[][2] = {
     {SDL_SCANCODE_KP_0, SDL_SCANCODE_INSERT},
     {SDL_SCANCODE_KP_PERIOD, SDL_SCANCODE_DELETE},
     {SDL_SCANCODE_KP_MULTIPLY, SDL_SCANCODE_PRINTSCREEN}
+};
+
+unsigned char icon_data[] = {
+#include "icon.h"
 };
 
 #define IS_FULLSCREEN() ((SDL_GetWindowFlags(wnd) & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0)
@@ -244,6 +249,11 @@ static void gfx_sdl_init(const char *window_title) {
         SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
     ctx = SDL_GL_CreateContext(wnd);
+
+    int w, h, depth;
+    unsigned char* pixels = pngutils_read_png_from_memory(icon_data, sizeof(icon_data), &w, &h, &depth, 0);
+    SDL_Surface* icon = SDL_CreateRGBSurfaceFrom(pixels, 128, 128, 32, 4 * 128, 0x000000FF, 0x0000FF00, 0x00FF0000, 0xFF000000);
+    SDL_SetWindowIcon(wnd, icon);
 
     saturn_imgui_init_backend(wnd, ctx);
 

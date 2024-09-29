@@ -76,7 +76,7 @@ struct Struct802C0DF0 {
     u8 unk0;
     u8 unk1;
     u8 unk2;
-    u8 model;
+    u16 model;
     const BehaviorScript *behavior;
 };
 
