@@ -90,6 +90,7 @@ s16 levelList[] = {
     LEVEL_TTC, LEVEL_WMOTR, LEVEL_RR, LEVEL_BITS,
     LEVEL_BOWSER_1, LEVEL_BOWSER_2, LEVEL_BOWSER_3
 };
+
 int areaList[] = {
     2, 1, 3, 1, 1,
     1, 1, 1, 2, 2,
@@ -97,6 +98,32 @@ int areaList[] = {
     2, 1, 2, 1,
     2, 2, 2, 2,
     1, 1, 1, 1
+};
+
+int levelParam = 0;
+std::map<int, std::vector<std::string>> levelParams = {
+    { LEVEL_DDD, {
+        "No Sub, No Poles",
+        "Sub, No Poles",
+        "No Sub, Poles",
+        "Sub, Poles"
+    } },
+    { LEVEL_WDW, {
+        "Very Low Water Level",
+        "Low Water Level",
+        "High Water Level",
+        "Very High Water Level"
+    } },
+    { LEVEL_THI, {
+        "Not Drained",
+        "Drained"
+    } },
+    { LEVEL_TTC, {
+        "Frozen",
+        "Slow",
+        "Fast",
+        "Random"
+    } }
 };
 
 int current_level_sel = 0;
@@ -194,6 +221,7 @@ void warp_to_level(int level, int area, int act = -1) {
             break;
     }
 
+    DynOS_Warp_SetParam(levelID, levelParam + 1);
     DynOS_Warp_ToWarpNode(levelID, area, act, warpnode);
 
     saturn_clear_actors();
@@ -342,6 +370,17 @@ void imgui_machinima_quick_options() {
                 if (is_selected) ImGui::SetItemDefaultFocus();
             }
             ImGui::EndCombo();
+        }
+
+        if (levelParams.find(levelList[current_slevel_index]) != levelParams.end()) {
+            if (ImGui::BeginCombo("###level_param", levelParams[levelList[current_slevel_index]][levelParam].c_str())) {
+                for (int i = 0; i < levelParams[levelList[current_slevel_index]].size(); i++) {
+                    bool is_selected = levelParam == i;
+                    if (ImGui::Selectable(levelParams[levelList[current_slevel_index]][i].c_str())) levelParam = i;
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+                ImGui::EndCombo();
+            }
         }
 
         if (ImGui::Button("Warp to Level")) {
