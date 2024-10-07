@@ -411,12 +411,12 @@ void imgui_update_theme() {
     style->ScaleAllSizes(SCALE);
 }
 
-int selected_video_format;
 int videores[] = { 1920, 1080 };
 bool capturing_video = false;
 bool orthographic_mode = false;
-bool transparency_enabled = true;
-bool sixty_fps_enabled = true;
+bool transparency_enabled = true, checkbox_transparency_enabled = true;
+bool sixty_fps_enabled = true, checkbox_sixty_fps_enabled = true;
+std::string capture_destination_file = "";
 int stop_capture = 0;
 int request_ortho_mode = 0;
 struct OrthographicRenderSettings ortho_settings = (struct OrthographicRenderSettings) {
@@ -501,7 +501,7 @@ void saturn_capture_screenshot() {
             }
         }
     }
-    else pngutils_write_png("screenshot.png", (int)videores[0], (int)videores[1], 4, image, 0);
+    else pngutils_write_png(capture_destination_file.c_str(), (int)videores[0], (int)videores[1], 4, image, 0);
     free(image);
 }
 
@@ -702,9 +702,6 @@ void saturn_imgui_init() {
     saturn_load_project_list();
 
     ffmpeg_installed = is_ffmpeg_installed();
-    if (ffmpeg_installed) selected_video_format = 2; // .mp4
-    else                  selected_video_format = 0; // .png sequence
-    saturn_set_video_renderer(selected_video_format);
 }
 
 void saturn_imgui_handle_events(SDL_Event * event) {
@@ -934,13 +931,6 @@ void saturn_keyframe_window() {
 char saturnProjectFilename[257] = "Project";
 int current_project_id;
 char mario_search_prompt[256];
-
-void ImGui_ConditionalCheckbox(const char* label, bool* val, bool cond) {
-    bool checked = *val && cond;
-    if (!cond) ImGui::BeginDisabled();
-    if (ImGui::Checkbox(label, &checked)) *val ^= true;
-    if (!cond) ImGui::EndDisabled();
-}
 
 std::vector<std::string> embedded_models = {};
 std::vector<std::string> embedded_anims = {};
@@ -1275,20 +1265,12 @@ void saturn_imgui_update() {
                 if (ImGui::Selectable("8K 16:9"))        { videores[0] = 7680; videores[1] = 4320; }
                 ImGui::EndCombo();
             }
-            bool sixty_fps_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS);
-            bool transparency_supported = (video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || orthographic_mode;
             ImGui::InputInt2("Resolution", videores);
             ImGui::Checkbox("Preview Aspect Ratio", &keep_aspect_ratio);
-            ImGui::Checkbox("Transparency", &transparency_enabled);
-            ImGui_ConditionalCheckbox("60 FPS", &sixty_fps_enabled, sixty_fps_supported && configFps60);
-            if (!sixty_fps_supported) {
-                ImGui::Text(ICON_FK_EXCLAMATION_TRIANGLE " This video format doesn't");
-                ImGui::Text("support 60 FPS framerate.");
-            }
-            if (!transparency_supported) {
-                ImGui::Text(ICON_FK_EXCLAMATION_TRIANGLE " This video format doesn't");
-                ImGui::Text("support transparency.");
-            }
+            ImGui::Checkbox("Transparency", &checkbox_transparency_enabled);
+            imgui_bundled_tooltip("Unsupported for MP4s");
+            ImGui::Checkbox("60 FPS", &checkbox_sixty_fps_enabled);
+            imgui_bundled_tooltip("Unsupported for GIFs");
             int curr_projection = request_ortho_mode == 0 ? orthographic_mode : request_ortho_mode - 1;
             if (ImGui::Combo("Projection", &curr_projection,
                 "Perspective\0"
@@ -1318,33 +1300,30 @@ void saturn_imgui_update() {
                     ImGui::EndTable();
                 }
             }
-            std::vector<std::pair<int, std::string>> video_formats = video_renderer_get_formats();
-            if (ImGui::BeginCombo("Video Format", video_formats[selected_video_format].second.c_str())) {
-                for (int i = 0; i < video_formats.size(); i++) {
-                    bool ffmpeg_required = video_formats[i].first & VIDEO_RENDERER_FLAGS_FFMPEG;
-                    bool is_selected = selected_video_format == i;
-                    if (!ffmpeg_installed && ffmpeg_required) ImGui::BeginDisabled();
-                    if (ImGui::Selectable(video_formats[i].second.c_str(), is_selected)) {
-                        selected_video_format = i;
-                        saturn_set_video_renderer(i);
-                    }
-                    if (is_selected) ImGui::SetItemDefaultFocus();
-                    if (!ffmpeg_installed && ffmpeg_required) ImGui::EndDisabled();
-                }
-                ImGui::EndCombo();
-            }
+            std::vector<std::string> video_formats = video_renderer_get_formats(ffmpeg_installed);
             ImGui::Separator();
             if (ImGui::Button("Capture Screenshot (.png)")) {
-                capturing_video = true;
-                keyframe_playing = false;
-                video_timer = VIDEO_FRAME_DELAY;
+                capture_destination_file = save_file_dialog("Save Screenshot", { "PNG image", "*.png" });
+                if (!capture_destination_file.empty()) {
+                    capturing_video = true;
+                    keyframe_playing = false;
+                    video_timer = VIDEO_FRAME_DELAY;
+                }
             }
             ImGui::SameLine();
             if (ImGui::Button("Render Video")) {
-                capturing_video = true;
-                video_timer = VIDEO_FRAME_DELAY;
-                saturn_play_keyframe();
-                video_renderer_init(videores[0], videores[1], sixty_fps_enabled);
+                capture_destination_file = save_file_dialog("Save Video", video_formats);
+                if (!capture_destination_file.empty()) {
+                    capturing_video = true;
+                    video_timer = VIDEO_FRAME_DELAY;
+                    saturn_play_keyframe();
+                    saturn_set_video_destination(capture_destination_file);
+                    transparency_enabled = checkbox_transparency_enabled;
+                    sixty_fps_enabled = checkbox_sixty_fps_enabled;
+                    if (!(video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS)) sixty_fps_enabled = false;
+                    if (!(video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY)) transparency_enabled = false;
+                    video_renderer_init(videores[0], videores[1], sixty_fps_enabled);
+                }
             }
         }
         ImGui::End();

@@ -981,9 +981,11 @@ void imgui_machinima_animation_player(MarioActor* actor, bool sampling) {
                     }
                     struct BinaryStream* data = anim_formats[animformat].encode(frames, indices, values, num_indices, num_values);
                     std::string filepath = save_file_dialog("Save Animation", { anim_formats[animformat].filter_name, anim_formats[animformat].filter, "All Files", "*" });
-                    std::ofstream stream = std::ofstream(filepath, std::ios::binary);
-                    stream.write((char*)data->data, data->length);
-                    stream.close();
+                    if (filepath != "") {
+                        std::ofstream stream = std::ofstream(filepath, std::ios::binary);
+                        stream.write((char*)data->data, data->length);
+                        stream.close();
+                    }
                     free(indices);
                     free(values);
                     free(data->data);

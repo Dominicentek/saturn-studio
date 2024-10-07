@@ -19,8 +19,8 @@ extern FUNC(video_renderer_render    FUNC_RENDER  );
 extern FUNC(video_renderer_finalize  FUNC_FINALIZE);
 extern int  video_renderer_flags;
 
-extern void saturn_set_video_renderer(int index);
-extern std::vector<std::pair<int, std::string>> video_renderer_get_formats();
+extern void saturn_set_video_destination(std::string path);
+extern std::vector<std::string> video_renderer_get_formats(bool ffmpeg);
 
 #define VIDEO_RENDERER_FLAGS_NONE        0
 #define VIDEO_RENDERER_FLAGS_TRANSPARECY (1 << 0)
