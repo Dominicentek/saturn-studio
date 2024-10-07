@@ -30,6 +30,7 @@
 #include "saturn/saturn_actors.h"
 
 extern "C" {
+#include "engine/surface_load.h"
 #include "game/game_init.h"
 #include "engine/graph_node.h"
 #include "game/rendering_graph_node.h"
@@ -163,6 +164,15 @@ bool simulating_world = false;
 
 void saturn_add_alloc_dl(Gfx* gfx) {
     gfxs.push_back(gfx);
+}
+
+void saturn_update_object_collision() {
+    clear_dynamic_surfaces();
+    for (int i = 0; i < 960; i++) {
+        if (gObjectPool[i].objList != OBJ_LIST_SURFACE) continue;
+        gCurrentObject = &gObjectPool[i];
+        load_object_collision_model();
+    }
 }
 
 void saturn_clear_simulation() {
@@ -779,6 +789,8 @@ void saturn_update() {
     if (world_simulation_data) {
         saturn_simulation_update();
     }
+
+    saturn_update_object_collision();
 
     // Autosave
 

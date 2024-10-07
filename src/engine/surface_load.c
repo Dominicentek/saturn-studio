@@ -768,6 +768,8 @@ void load_object_collision_model(void) {
     f32 marioDist = gCurrentObject->oDistanceToMario;
     f32 tangibleDist = gCurrentObject->oCollisionDistance;
 
+    if (!collisionData) return;
+
     // On an object's first frame, the distance is set to 19000.0f.
     // If the distance hasn't been updated, update it now.
     if (gCurrentObject->oDistanceToMario == 19000.0f) {
@@ -780,8 +782,8 @@ void load_object_collision_model(void) {
         gCurrentObject->oDrawingDistance = gCurrentObject->oCollisionDistance;
     }
 
-    // Update if no Time Stop, in range, and in the current room.
-    if (!(gTimeStopState & TIME_STOP_ACTIVE) && marioDist < tangibleDist
+    // Update if no Time Stop and in the current room.
+    if (!(gTimeStopState & TIME_STOP_ACTIVE)
         && !(gCurrentObject->activeFlags & ACTIVE_FLAG_IN_DIFFERENT_ROOM)) {
         collisionData++;
         transform_object_vertices(&collisionData, vertexData);
