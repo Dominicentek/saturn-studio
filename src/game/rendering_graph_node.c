@@ -7,6 +7,7 @@
 #include "gfx_dimensions.h"
 #include "main.h"
 #include "memory.h"
+#include "object_constants.h"
 #include "print.h"
 #include "rendering_graph_node.h"
 #include "shadow.h"
@@ -1288,13 +1289,19 @@ static void geo_process_object(struct Object *node) {
  * actual children are be processed. (in practice they are null though)
  */
 static void geo_process_object_parent(struct GraphNodeObjectParent *node) {
-    if (node->sharedChild != NULL) {
+    /*if (node->sharedChild != NULL) {
         node->sharedChild->parent = (struct GraphNode *) node;
         geo_process_node_and_siblings(node->sharedChild);
         node->sharedChild->parent = NULL;
     }
     if (node->node.children != NULL) {
         geo_process_node_and_siblings(node->node.children);
+    }*/
+    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+        if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
+        if (gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_INVISIBLE) continue;
+        if (!(gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_ACTIVE)) continue;
+        geo_process_object(gObjectPool + i);
     }
     for (int i = 0; i < saturn_actor_sizeof(); i++) {
         struct Object* obj = saturn_actor_get_object(i);
