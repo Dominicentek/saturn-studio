@@ -5,6 +5,14 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
+extern "C" {
+#endif
+void load_animation(struct Animation* out, int index);
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -29,7 +37,6 @@ extern void saturn_read_mcomp_animation(MarioActor*, std::string);
 extern void saturn_load_anim_folder(std::string, int*);
 extern void saturn_play_custom_animation();
 extern void saturn_run_chainer();
-extern void load_animation(struct Animation* out, int index);
 extern void saturn_sample_animation(MarioActor* actor, struct Animation* anim, int frame);
 
 #endif

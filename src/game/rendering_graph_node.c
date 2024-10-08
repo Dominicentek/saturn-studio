@@ -1160,7 +1160,7 @@ static void geo_process_object(struct Object *node) {
     if (saturn_imgui_is_capturing_video() && (saturn_actor_is_hidden() || node->behavior == bhvMario)) return;
     saturn_actor_bone_override_begin();
 
-    if (node->header.gfx.unk18 == gCurGraphNodeRoot->areaIndex) {
+    if (1/*node->header.gfx.unk18 == gCurGraphNodeRoot->areaIndex*/) {
         if (node->header.gfx.throwMatrix != NULL) {
             mtxf_mul(gMatStack[gMatStackIndex + 1], *node->header.gfx.throwMatrix,
                      gMatStack[gMatStackIndex]);
@@ -1299,8 +1299,10 @@ static void geo_process_object_parent(struct GraphNodeObjectParent *node) {
     }*/
     for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
         if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
-        if (gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_INVISIBLE) continue;
-        if (!(gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_ACTIVE)) continue;
+        if (gObjectPool[i].behavior != bhvMario) {
+            if (gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_INVISIBLE) continue;
+            if (!(gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_ACTIVE)) continue;
+        }
         geo_process_object(gObjectPool + i);
     }
     for (int i = 0; i < saturn_actor_sizeof(); i++) {
