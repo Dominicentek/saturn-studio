@@ -826,7 +826,7 @@ static u32 set_mario_action_airborne(struct MarioState *m, u32 action, u32 actio
             break;
 
         case ACT_BACKFLIP:
-            m->marioObj->header.gfx.unk38.animID = -1;
+            m->marioObj->header.gfx.unk38.animFrame = m->marioObj->header.gfx.unk38.curAnim->unk04;
             m->forwardVel = -16.0f;
             set_mario_y_vel_based_on_fspeed(m, 62.0f, 0.0f);
             break;
@@ -858,7 +858,7 @@ static u32 set_mario_action_airborne(struct MarioState *m, u32 action, u32 actio
 
         case ACT_JUMP:
         case ACT_HOLD_JUMP:
-            m->marioObj->header.gfx.unk38.animID = -1;
+            m->marioObj->header.gfx.unk38.animFrame = m->marioObj->header.gfx.unk38.curAnim->unk04;
             set_mario_y_vel_based_on_fspeed(m, 42.0f, 0.25f);
             m->forwardVel *= 0.8f;
             break;
@@ -879,7 +879,7 @@ static u32 set_mario_action_airborne(struct MarioState *m, u32 action, u32 actio
             break;
 
         case ACT_STEEP_JUMP:
-            m->marioObj->header.gfx.unk38.animID = -1;
+            m->marioObj->header.gfx.unk38.animFrame = m->marioObj->header.gfx.unk38.curAnim->unk04;
             set_mario_y_vel_based_on_fspeed(m, 42.0f, 0.25f);
             m->faceAngle[0] = -0x2000;
             break;
@@ -899,7 +899,7 @@ static u32 set_mario_action_airborne(struct MarioState *m, u32 action, u32 actio
             break;
 
         case ACT_LONG_JUMP:
-            m->marioObj->header.gfx.unk38.animID = -1;
+            m->marioObj->header.gfx.unk38.animFrame = m->marioObj->header.gfx.unk38.curAnim->unk04;
             set_mario_y_vel_based_on_fspeed(m, 30.0f, 0.0f);
             m->marioObj->oMarioLongJumpIsSlow = m->forwardVel > 16.0f ? FALSE : TRUE;
 

@@ -1608,7 +1608,7 @@ s32 act_jump_kick(struct MarioState *m) {
     if (m->actionState == 0) {
         play_sound_if_no_flag(m, SOUND_MARIO_PUNCH_HOO, MARIO_ACTION_SOUND_PLAYED);
         if (!configVoicesEnabled) play_sound(SOUND_ACTION_SPIN, m->marioObj->header.gfx.cameraToObject);
-        m->marioObj->header.gfx.unk38.animID = -1;
+        m->marioObj->header.gfx.unk38.animFrame = m->marioObj->header.gfx.unk38.curAnim->unk04;
         set_mario_animation(m, MARIO_ANIM_AIR_KICK);
         m->actionState = 1;
     }
