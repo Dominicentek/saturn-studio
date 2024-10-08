@@ -1297,7 +1297,7 @@ static void geo_process_object_parent(struct GraphNodeObjectParent *node) {
     if (node->node.children != NULL) {
         geo_process_node_and_siblings(node->node.children);
     }*/
-    for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
+    if (!autoChroma || (autoChroma && autoChromaObjects)) for (int i = 0; i < OBJECT_POOL_CAPACITY; i++) {
         if (gObjectPool[i].activeFlags == ACTIVE_FLAG_DEACTIVATED) continue;
         if (gObjectPool[i].behavior != bhvMario) {
             if (gObjectPool[i].header.gfx.node.flags & GRAPH_RENDER_INVISIBLE) continue;
