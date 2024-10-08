@@ -138,7 +138,7 @@ void saturn_set_video_destination(std::string filename) {
     std::string ext = std::filesystem::path(filename).extension().string();
     for (int i = 0; i < video_renderers.size(); i++) {
         auto renderer = video_renderers[i];
-        if (renderer.first.first + "." == ext) {
+        if ("." + renderer.first.first == ext) {
             index = i;
             break;
         }
