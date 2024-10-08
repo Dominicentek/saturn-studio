@@ -1304,6 +1304,7 @@ void saturn_imgui_update() {
             ImGui::Separator();
             if (ImGui::Button("Capture Screenshot (.png)")) {
                 capture_destination_file = save_file_dialog("Save Screenshot", { "PNG image", "*.png" });
+                transparency_enabled = checkbox_transparency_enabled;
                 if (!capture_destination_file.empty()) {
                     capturing_video = true;
                     keyframe_playing = false;
