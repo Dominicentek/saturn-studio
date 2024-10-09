@@ -36,7 +36,7 @@ void pngseq_render(unsigned char* data) {
 void webm_init(int w, int h, bool fps60) {
     video_width = w;
     video_height = h;
-    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v libvpx-vp9 -pix_fmt yuva420p " + output;
+    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v libvpx-vp9 -pix_fmt yuva420p \"" + output + "\"";
 #ifdef _WIN32
     ffmpeg = popen(cmd.c_str(), "wb");
 #else
@@ -47,7 +47,7 @@ void webm_init(int w, int h, bool fps60) {
 void mp4_init(int w, int h, bool fps60) {
     video_width = w;
     video_height = h;
-    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v h264 -pix_fmt yuv420p " + output;
+    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v h264 -pix_fmt yuv420p \"" + output + "\"";
 #ifdef _WIN32
     ffmpeg = popen(cmd.c_str(), "wb");
 #else
@@ -58,7 +58,7 @@ void mp4_init(int w, int h, bool fps60) {
 void gif_init(int w, int h, bool fps60) {
     video_width = w;
     video_height = h;
-    std::string cmd = "ffmpeg -y -r 30 -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i -  -vf \"format=rgba,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse\" " + output;
+    std::string cmd = "ffmpeg -y -r 30 -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i -  -vf \"format=rgba,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse\" \"" + output + "\"";
 #ifdef _WIN32
     ffmpeg = popen(cmd.c_str(), "wb");
 #else
@@ -69,7 +69,7 @@ void gif_init(int w, int h, bool fps60) {
 void mov_init(int w, int h, bool fps60) {
     video_width = w;
     video_height = h;
-    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v qtrle -pix_fmt argb " + output;
+    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v qtrle -pix_fmt argb \"" + output + "\"";
 #ifdef _WIN32
     ffmpeg = popen(cmd.c_str(), "wb");
 #else
