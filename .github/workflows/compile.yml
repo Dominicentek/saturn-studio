@@ -1,52 +1,115 @@
-name: Compile
+name: Build and Release
 
 on: workflow_dispatch
 
 jobs:
-  windows:
-    name: Windows (MSYS2)
+  configure:
+    runs-on: ubuntu-latest
+    outputs:
+      version_number: ${{ steps.config.outputs.version_number }}
+      patch_notes: ${{ steps.config.outputs.patch_notes }}
+      
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
 
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
+      - name: Set up dependencies
+        run: sudo apt install -y build-essential
+
+      - name: Generate config
+        id: config
+        run: |
+          VERSION=$(cat src/saturn/saturn_version.h <(echo SATURN_VERSION) | cpp | sed s/#.*$//g | sed s/\"//g | sed 's/ \. /./g')
+          PATCH_NOTES=$(cat PATCH_NOTES.md)
+          echo "version_number=$(echo $VERSION)" >> $GITHUB_OUTPUT
+          echo "patch_notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$PATCH_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  build:
+    needs: [release, configure]
+    permissions: write-all
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: msys2/setup-msys2@v2
-    - name: Fetch Dependencies
-      run: pacman -S --noconfirm unzip make git mingw-w64-i686-gcc mingw-w64-x86_64-gcc mingw-w64-i686-glew mingw-w64-x86_64-glew mingw-w64-i686-SDL2 mingw-w64-i686-SDL mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL python3 mingw-w64-x86_64-curl mingw-w64-x86_64-jsoncpp mingw-w64-x86_64-dlfcn
-    - name: Build
-      run: |
-        make -j$(nproc)
-        cd build/us_pc
-        rm -rf textures text src sound lib levels include data bin assets actors res
-        rm -f level_rules.mk
-        cd ../../
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: saturn-${{ github.run_number }}-${{ github.job }}
-        path: D:\a\saturn-studio\saturn-studio\build\us_pc\
+      - name: Check out repository
+        uses: actions/checkout@v3
 
-  linux:
-    name: Linux
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        if: matrix.os == 'windows-latest'
 
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt install -y build-essential python3 libglew-dev libsdl2-dev libcurl4-gnutls-dev curl
+          make -j$(nproc)
+          cd build/us_pc
+          zip -r ../../release.zip saturn.us.f3dex2e libdiscord_game_sdk.so dynos fonts
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm zip make git python mingw-w64-x86_64-gcc mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-dlfcn
+          make -j$(nproc)
+          cd build/us_pc
+          zip -r ../../release.zip saturn.us.f3dex2e.exe discord_game_sdk.dll dynos fonts
+
+      - name: Upload to release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.release.outputs.upload_url }}
+          asset_path: ./release.zip
+          asset_name: ${{ matrix.os == 'ubuntu-latest' && 'linux.zip' || 'windows.zip' }}
+          asset_content_type: application/zip
+
+  release:
+    needs: [configure]
+    permissions: write-all
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.release.outputs.upload_url }}
+      release_id: ${{ steps.release.outputs.id }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+        
+      - name: Create a tag
+        env:
+          tag_name: ${{ needs.configure.outputs.version_number }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag $tag_name
+          git push origin $tag_name
+          
+      - name: Create a release
+        uses: avakar/tag-and-release@v1
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.configure.outputs.version_number }}
+          body: ${{ needs.configure.outputs.patch_notes }}
+          draft: true
+          prerelease: false
+
+  publish:
+    needs: [configure, release, build]
+    permissions: write-all
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Fetch Dependencies
-      run: sudo apt update && sudo apt install -y build-essential git python3 libglew-dev libsdl2-dev curl libcurl4-gnutls-dev libjsoncpp-dev
-    - name: Build
-      run: |
-        make -j$(nproc)
-        cd build/us_pc
-        rm -rf textures text src sound lib levels include data bin assets actors res
-        rm -f level_rules.mk
-        cd ../../
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: saturn-${{ github.run_number }}-${{ github.job }}
-        path: /home/runner/work/saturn-studio/saturn-studio/build/us_pc
+      - name: Publish release
+        uses: eregon/publish-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          release_id: ${{ needs.release.outputs.release_id }}
