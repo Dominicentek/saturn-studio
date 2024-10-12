@@ -283,17 +283,24 @@ endif
 
 LIBULTRA := $(BUILD_DIR)/libultra.a
 
+UPDATE_TOOL_SOURCE := autoupdate/main.cpp
+
 ifeq ($(TARGET_WEB),1)
 EXE := $(BUILD_DIR)/$(TARGET).html
 	else
 	ifeq ($(WINDOWS_BUILD),1)
 		EXE := $(BUILD_DIR)/$(TARGET).exe
+    UPDATE_TOOL := $(BUILD_DIR)/updatetool.exe
+    UPDATE_TOOL_HTTPLIB := urlmon
 
 		else # Linux builds/binary namer
+    UPDATE_TOOL_HTTPLIB := curl
 		ifeq ($(TARGET_RPI),1)
 			EXE := $(BUILD_DIR)/$(TARGET).arm
+      UPDATE_TOOL := $(BUILD_DIR)/updatetool.arm
 		else
 			EXE := $(BUILD_DIR)/$(TARGET)
+      UPDATE_TOOL := $(BUILD_DIR)/updatetool
 		endif
 	endif
 endif
@@ -802,7 +809,7 @@ ZEROTERM = $(PYTHON) $(TOOLS_DIR)/zeroterm.py
 
 ######################## Targets #############################
 
-all: $(EXE)
+all: $(EXE) $(UPDATE_TOOL)
 
 # thank you apple very cool
 ifeq ($(HOST_OS),Darwin)
@@ -1119,6 +1126,9 @@ $(EXE): $(O_FILES) $(MIO0_FILES:.mio0=.o) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(
   ifeq ($(WINDOWS_BUILD),1)
 	  $(OBJDUMP) -t $(EXE) > $(SYMBOL_MAP)
   endif
+
+$(UPDATE_TOOL): $(UPDATE_TOOL_SOURCE)
+	$(CXX) $(UPDATE_TOOL_SOURCE) -o $@ -lSDL2 -lzip -l$(UPDATE_TOOL_HTTPLIB)
 
 .PHONY: all clean distclean default diff test load libultra res
 .PRECIOUS: $(BUILD_DIR)/bin/%.elf $(SOUND_BIN_DIR)/%.ctl $(SOUND_BIN_DIR)/%.tbl $(SOUND_SAMPLE_TABLES) $(SOUND_BIN_DIR)/%.s $(BUILD_DIR)/%

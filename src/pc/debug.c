@@ -191,6 +191,8 @@ static void crash_handler(int signal, siginfo_t* info, ucontext_t* context)
 #if defined(GIT_HASH) && defined(GIT_BRANCH)
     printf(GIT_BRANCH " " GIT_HASH "\n");
 #endif
+    // this HAS to stay unmodified otherwise the updater tool will break
+    // this also has to be the ONLY instance of the "Version: " string in the entire executable
     printf("Version: " SATURN_VERSION "\n");
 #ifdef _WIN32
     if (exception && exception->ExceptionRecord) {
