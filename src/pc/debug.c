@@ -6,6 +6,7 @@ extern void saturn_update();
 
 #include "pc/platform.h"
 #include "saturn/saturn_version.h"
+#include "saturn/imgui/saturn_imgui_dynos.h"
 
 #ifdef _WIN32
 #include <io.h>
@@ -299,6 +300,7 @@ static void crash_handler(int signal, siginfo_t* info, ucontext_t* context)
     free_symbols(symbols);
 #endif
     close_logger();
+    saturn_show_crash_dialog();
     exit(1);
 #ifdef _WIN32
     return 0;

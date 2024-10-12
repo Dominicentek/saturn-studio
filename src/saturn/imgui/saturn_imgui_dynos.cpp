@@ -80,7 +80,7 @@ std::string save_file_dialog(std::string windowTitle, std::vector<std::string> f
     return pfd::save_file(windowTitle, ".", filetypes, pfd::opt::none).result();
 }
 
-void open_directory(std::string path) {
+void open_file(std::string path) {
 #if defined(_WIN32) // Windows
     ShellExecuteA(NULL, "open", ("\"" + path + "\"").c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__) // macOS
@@ -88,6 +88,21 @@ void open_directory(std::string path) {
 #else // Linux
     system(("xdg-open \"" + path + "\"").c_str());
 #endif
+}
+
+void saturn_show_crash_dialog() {
+    if (pfd::message("Saturn Studio",
+        "Saturn Studio has crashed.\n"
+        "\n"
+        "Join the Saturn Discord server\n"
+        "https://discord.gg/rGqREG2kYv\n"
+        "to resolve the issue with the developers.\n"
+        "\n"
+        "Open the log file?",
+        pfd::choice::yes_no, pfd::icon::warning
+    ).result() == pfd::button::yes) {
+        open_file(std::string(sys_user_path()) + "/latest.log");
+    }
 }
 
 // UI
@@ -224,7 +239,7 @@ void OpenModelSelector(MarioActor* actor) {
 
                     imgui_bundled_tooltip(("/%s", model.FolderPath).c_str());
                     if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-                        open_directory(std::string(sys_exe_path()) + "/" + model.FolderPath + "/");
+                        open_file(std::string(sys_exe_path()) + "/" + model.FolderPath + "/");
 
                     ImGui::SameLine(); ImGui::TextDisabled(" Pack #%i", model.DynOSId + 1);
 
@@ -289,7 +304,7 @@ void OpenModelSelector(MarioActor* actor) {
         // Open DynOS Folder Button
 
         if (ImGui::Button(ICON_FK_FOLDER_OPEN_O " Open Packs Folder...###open_packs_folder"))
-            open_directory(std::string(sys_exe_path()) + "/dynos/packs/");
+            open_file(std::string(sys_exe_path()) + "/dynos/packs/");
     }
 }
 
@@ -318,7 +333,7 @@ void sdynos_imgui_menu(int index) {
                 OpenCCSelector(actor);
                 // Open File Dialog
                 if (ImGui::Button(ICON_FK_FILE_TEXT_O " Open CC Folder...###open_cc_folder"))
-                    open_directory(std::string(sys_exe_path()) + "/dynos/colorcodes/");
+                    open_file(std::string(sys_exe_path()) + "/dynos/colorcodes/");
             if (!actor->cc_support || !actor->model.ColorCodeSupport) ImGui::EndDisabled();
 
             // Model Selection
@@ -593,7 +608,7 @@ void sdynos_imgui_menu(int index) {
         ImGui::BeginChild("###model_metadata", ImVec2(0, 45), true, ImGuiWindowFlags_NoScrollbar);
         ImGui::Text(metaLabelText.c_str()); imgui_bundled_tooltip(metaDataText.c_str());
         if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left))
-            open_directory(std::string(sys_exe_path()) + "/" + actor->model.FolderPath + "/");
+            open_file(std::string(sys_exe_path()) + "/" + actor->model.FolderPath + "/");
         ImGui::TextDisabled(("@ " + actor->model.Author).c_str());
         ImGui::EndChild();
         ImGui::PopStyleVar();

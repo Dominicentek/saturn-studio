@@ -19,6 +19,7 @@
 #include "saturn/saturn_actors.h"
 #include "saturn_imgui.h"
 #include "saturn/imgui/saturn_imgui_file_browser.h"
+#include "saturn/imgui/saturn_imgui_dynos.h"
 #include "data/dynos.cpp.h"
 #include <SDL2/SDL.h>
 
@@ -28,8 +29,6 @@ extern "C" {
 #include "pc/gfx/gfx_pc.h"
 #include "pc/configfile.h"
 }
-
-extern void open_directory(std::string);
 
 GLuint active_expression_preview = 0;
 int preview_width = 0;
@@ -107,7 +106,7 @@ void ShowTextureContextMenu(Expression* expression, TexturePath texture, int id)
         }
         // Label
         if (ImGui::Selectable(("%s/", texture.FileName.c_str()), false)) {
-            open_directory(std::string(sys_exe_path()) + "/" + texture.ParentPath() + "/");
+            open_file(std::string(sys_exe_path()) + "/" + texture.ParentPath() + "/");
             ImGui::CloseCurrentPopup();
         }
         imgui_bundled_tooltip(("/%s", texture.FilePath).c_str());
