@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <map>
 #include <fstream>
+#include <thread>
 
 #include "behavior_data.h"
 #include "game/area.h"
@@ -42,6 +43,11 @@
 #include "types.h"
 
 #include <SDL2/SDL.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
 
 #ifdef __MINGW32__
 # define FOR_WINDOWS 1
@@ -691,6 +697,73 @@ bool is_ffmpeg_installed() {
     return false;
 }
 
+bool update_available = false;
+std::thread check_update_thread;
+
+#ifdef _WIN32
+#define UPDATETOOL "updatetool.exe"
+#define GET_EXE_PATH GetModuleFileName(NULL, exe_path, 8192)
+#else
+#define UPDATETOOL "updatetool"
+#define GET_EXE_PATH readlink("/proc/self/exe", exe_path, 8192);
+#endif
+
+#define GET_UPDATETOOL  \
+    char exe_path[8192]; \
+    GET_EXE_PATH;         \
+    std::filesystem::path path = std::filesystem::path(exe_path).parent_path() / UPDATETOOL; \
+    if (!std::filesystem::exists(path)) return;
+
+void saturn_check_update() {
+    GET_UPDATETOOL;
+    check_update_thread = std::thread([path, exe_path]() {
+        std::string cmd = "\"" + path.string() + "\" check \"" + exe_path + "\"";
+#ifdef _WIN32
+        DWORD exitcode;
+        STARTUPINFOA si;
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&si, sizeof(si));
+        ZeroMemory(&pi, sizeof(pi));
+        si.cb = sizeof(si);
+        si.dwFlags |= STARTF_USESHOWWINDOW;
+        si.wShowWindow = SW_HIDE;
+        CreateProcessA(cmd.c_str(), nullptr, nullptr, nullptr, false, 0, nullptr, nullptr, &si, &pi);
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        GetExitCodeProcess(pi.hProcess, &exitcode);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+#else
+        int exitcode = system((cmd + " < /dev/null &> /dev/null").c_str());
+        exitcode = WEXITSTATUS(exitcode);
+#endif
+        if (exitcode == 6 /* CAN_UPDATE */) update_available = true;
+    });
+    check_update_thread.detach();
+}
+
+void saturn_do_update() {
+    GET_UPDATETOOL;
+#ifdef _WIN32
+    std::string cmd = "\"" + path.string() + "\" update \"" + exe_path + "\" & \"" + exe_path + "\"";
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
+    si.cb = sizeof(si);
+    CreateProcess(cmd.c_str(), nullptr, nullptr, nullptr, false, CREATE_NO_WINDOW | DETACHED_PROCESS, nullptr, nullptr, &si, &pi);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+#else
+    std::string cmd = "(\"" + path.string() + "\" update \"" + exe_path + "\" &> /dev/null ; \"" + exe_path + "\") &";
+    system(cmd.c_str());
+#endif
+}
+
+void saturn_start_program_update() {
+    atexit(saturn_do_update);
+    exit(0);
+}
+
 bool ffmpeg_installed = true;
 
 void saturn_imgui_init() {
@@ -702,6 +775,8 @@ void saturn_imgui_init() {
     saturn_load_project_list();
 
     ffmpeg_installed = is_ffmpeg_installed();
+
+    saturn_check_update();
 }
 
 void saturn_imgui_handle_events(SDL_Event * event) {
@@ -1546,6 +1621,16 @@ void saturn_imgui_update() {
     ImGui::PopStyleVar();
 
     saturn_keyframe_window();
+
+    if (update_available) {
+        ImGui::Begin("Update Available", &update_available, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+        ImGui::Text("A new Saturn Studio version is released");
+        ImGui::Separator();
+        if (ImGui::Button("Update")) saturn_start_program_update();
+        ImGui::SameLine();
+        if (ImGui::Button("Not Now")) update_available = false;
+        ImGui::End();
+    }
 
     ImGuiViewportP* viewport = (ImGuiViewportP*)(void*)ImGui::GetMainViewport();
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;

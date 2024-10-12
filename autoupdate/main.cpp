@@ -2,7 +2,6 @@
 #include <fstream>
 #include <filesystem>
 #include <zip.h>
-#include <unistd.h>
 
 #include "downloader.h"
 #include "picojson.h"
@@ -125,9 +124,13 @@ int main(int argc, char** argv) {
     struct GUIHandle* handle = gui_init(version.c_str(), latest_version.c_str());
     Downloader downloader(url);
     downloader.progress([&](double now, double total){
-        gui_update(handle, now / total);
+        double ratio;
+        if (total == 0) ratio = 0;
+        else ratio = now / total;
+        gui_update(handle, ratio);
     });
     downloader.download();
+    gui_quit(handle);
 
     char* executable;
     size_t executable_size;
