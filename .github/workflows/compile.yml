@@ -48,7 +48,8 @@ jobs:
           sudo apt install -y build-essential python3 libglew-dev libsdl2-dev libcurl4-gnutls-dev curl
           make -j$(nproc)
           cd build/us_pc
-          zip -r ../../release.zip saturn.us.f3dex2e libdiscord_game_sdk.so dynos fonts
+          mv saturn.us.f3dex2e "Saturn Studio"
+          zip -r ../../release.zip "Saturn Studio" updatetool libdiscord_game_sdk.so dynos fonts
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
@@ -57,7 +58,8 @@ jobs:
           pacman -S --noconfirm zip make git python mingw-w64-x86_64-gcc mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-dlfcn
           make -j$(nproc)
           cd build/us_pc
-          zip -r ../../release.zip saturn.us.f3dex2e.exe discord_game_sdk.dll dynos fonts
+          mv saturn.us.f3dex2e.exe "Saturn Studio.exe"
+          zip -r ../../release.zip "Saturn Studio.exe" updatetool.exe discord_game_sdk.dll dynos fonts
 
       - name: Upload to release
         uses: actions/upload-release-asset@v1
