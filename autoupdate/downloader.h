@@ -1,4 +1,4 @@
-#ifdef WINDOWS
+#ifdef _WIN32
 #include <Windows.h>
 #include <fstream>
 #include <filesystem>
@@ -12,7 +12,7 @@
 
 typedef std::function<void(double, double)> ProgressCallback;
 
-#ifdef WINDOWS
+#ifdef _WIN32
 class Downloader : public IBindStatusCallback {
 #else
 class Downloader {
@@ -20,7 +20,7 @@ class Downloader {
 private:
     ProgressCallback progress_callback = nullptr;
     std::string _url;
-#ifdef WINDOWS
+#ifdef _WIN32
     STDMETHOD (OnProgress)(ULONG ulProgress, ULONG ulProgressMax, ULONG ulStatusCode, LPCWSTR wszStatusText) {
         if (progress_callback != nullptr) progress_callback(ulProgress, ulProgressMax);
         return S_OK;
@@ -64,7 +64,7 @@ public:
             if (_url[i] == ' ') url += "%20";
             else url += _url[i];
         }
-#ifdef WINDOWS
+#ifdef _WIN32
         std::string destfile = std::string(std::getenv("TEMP")) + "/saturn-updater-download-dest.dat";
         if (URLDownloadToFile(NULL, url.c_str(), destfile.c_str(), 0, this) == S_OK) {
             int filesize = std::filesystem::file_size(destfile);

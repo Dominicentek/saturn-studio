@@ -3,7 +3,7 @@
 
 #define VERSION_STAGE DEVSTAGE_RELEASE
 #define VERSION_MAJOR 6
-#define VERSION_MINOR 0
+#define VERSION_MINOR 1
 #define VERSION_PATCH 0
 
 #define _STR(x) #x

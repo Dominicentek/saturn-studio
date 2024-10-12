@@ -725,15 +725,13 @@ void saturn_check_update() {
         ZeroMemory(&si, sizeof(si));
         ZeroMemory(&pi, sizeof(pi));
         si.cb = sizeof(si);
-        si.dwFlags |= STARTF_USESHOWWINDOW;
-        si.wShowWindow = SW_HIDE;
-        CreateProcessA(cmd.c_str(), nullptr, nullptr, nullptr, false, 0, nullptr, nullptr, &si, &pi);
+        CreateProcess(nullptr, (LPSTR)cmd.c_str(), nullptr, nullptr, false, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi);
         WaitForSingleObject(pi.hProcess, INFINITE);
         GetExitCodeProcess(pi.hProcess, &exitcode);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
 #else
-        int exitcode = system((cmd + " < /dev/null &> /dev/null").c_str());
+        int exitcode = system((cmd + " &> /dev/null").c_str());
         exitcode = WEXITSTATUS(exitcode);
 #endif
         if (exitcode == 6 /* CAN_UPDATE */) update_available = true;
@@ -743,19 +741,16 @@ void saturn_check_update() {
 
 void saturn_do_update() {
     GET_UPDATETOOL;
+    std::string cmd = "\"" + path.string() + "\" update \"" + exe_path + "\"";
 #ifdef _WIN32
-    std::string cmd = "\"" + path.string() + "\" update \"" + exe_path + "\" & \"" + exe_path + "\"";
     STARTUPINFOA si;
     PROCESS_INFORMATION pi;
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
     si.cb = sizeof(si);
-    CreateProcess(cmd.c_str(), nullptr, nullptr, nullptr, false, CREATE_NO_WINDOW | DETACHED_PROCESS, nullptr, nullptr, &si, &pi);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
+    CreateProcess(nullptr, (LPSTR)cmd.c_str(), nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
 #else
-    std::string cmd = "(\"" + path.string() + "\" update \"" + exe_path + "\" &> /dev/null ; \"" + exe_path + "\") &";
-    system(cmd.c_str());
+    system((cmd + " &> /dev/null &").c_str());
 #endif
 }
 

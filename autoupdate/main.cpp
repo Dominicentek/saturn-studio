@@ -38,7 +38,8 @@ const char* exit_msgs[] = {
 
 #define OWNER "Dominicentek"
 #define REPO  "saturn-studio"
-#ifdef WINDOWS
+
+#ifdef _WIN32
 #define TARGET_OS "windows"
 #define EXE ".exe"
 #else
@@ -53,7 +54,7 @@ const char* exit_msgs[] = {
 
 std::string extract_version(std::string filename) {
     if (!std::filesystem::exists(filename)) return "";
-    std::ifstream stream = std::ifstream(filename);
+    std::ifstream stream = std::ifstream(filename, std::ios::binary);
     size_t size = std::filesystem::file_size(filename);
     char* data = (char*)malloc(size);
     stream.read(data, size);
@@ -136,11 +137,23 @@ int main(int argc, char** argv) {
     size_t executable_size;
     unzip(downloader.data.data(), downloader.data.size(), &executable, &executable_size);
     
-    std::ofstream stream = std::ofstream(argv[2]);
+    std::ofstream stream = std::ofstream(argv[2], std::ios::binary);
     stream.write(executable, executable_size);
     stream.close();
 
     free(executable);
+
+    std::string cmd = std::string("\"") + argv[2] + "\"";
+#ifdef _WIN32
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
+    si.cb = sizeof(si);
+    CreateProcess(nullptr, (LPSTR)cmd.c_str(), nullptr, nullptr, false, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+#else
+    system((cmd + " &> /dev/null &").c_str());
+#endif
 
     exit(EXIT_SUCCESS);
 }

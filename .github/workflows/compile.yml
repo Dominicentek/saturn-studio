@@ -45,7 +45,7 @@ jobs:
       - name: Build (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt install -y build-essential python3 libglew-dev libsdl2-dev libcurl4-gnutls-dev curl
+          sudo apt install -y build-essential python3 libglew-dev libsdl2-dev libcurl4-gnutls-dev curl pkgconf
           make -j$(nproc)
           cd build/us_pc
           mv saturn.us.f3dex2e "Saturn Studio"
@@ -55,7 +55,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: msys2 {0}
         run: |
-          pacman -S --noconfirm zip make git python mingw-w64-x86_64-gcc mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-dlfcn
+          pacman -S --noconfirm zip make git python mingw-w64-x86_64-gcc mingw-w64-x86_64-glew mingw-w64-x86_64-SDL2 mingw-w64-x86_64-dlfcn pkgconf
           make -j$(nproc)
           cd build/us_pc
           mv saturn.us.f3dex2e.exe "Saturn Studio.exe"

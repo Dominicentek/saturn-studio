@@ -12,9 +12,9 @@ struct GUIHandle {
 };
 
 void gui_init_font(struct GUIHandle* handle) {
-    int numPixels = 112 * 84;
-    int* pixels = (int*)malloc(numPixels * 4);
-    for (int i = 0; i < numPixels; i++) {
+    int num_pixels = 112 * 84;
+    int* pixels = (int*)malloc(num_pixels * 4);
+    for (int i = 0; i < num_pixels; i++) {
         pixels[i] = (font_data[i / 8] & (1 << (7 - i % 8))) ? 0xFFFFFFFF : 0x00000000;
     }
     SDL_Surface* surface = SDL_CreateRGBSurfaceFrom(pixels, 112, 84, 32, 112 * 4, 0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
@@ -67,7 +67,8 @@ void gui_update(struct GUIHandle* handle, float progress) {
 }
 
 struct GUIHandle* gui_init(const char* from, const char* to) {
-    struct GUIHandle* handle = new struct GUIHandle;
+    struct GUIHandle* handle = (struct GUIHandle*)malloc(sizeof(struct GUIHandle));
+    memset(handle, 0, sizeof(struct GUIHandle));
     gui_init_font(handle);
     SDL_Init(SDL_INIT_VIDEO);
     handle->window = SDL_CreateWindow("Saturn Studio Update Tool", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 264, 68, 0);
@@ -83,5 +84,5 @@ void gui_quit(struct GUIHandle* handle) {
     SDL_DestroyTexture(handle->font);
     SDL_DestroyRenderer(handle->renderer);
     SDL_DestroyWindow(handle->window);
-    delete handle;
+    free(handle);
 }

@@ -291,10 +291,10 @@ EXE := $(BUILD_DIR)/$(TARGET).html
 	ifeq ($(WINDOWS_BUILD),1)
 		EXE := $(BUILD_DIR)/$(TARGET).exe
     UPDATE_TOOL := $(BUILD_DIR)/updatetool.exe
-    UPDATE_TOOL_HTTPLIB := urlmon
+    UPDATE_TOOL_FLAGS := $(shell pkg-config --static --cflags --libs sdl2 libzip) -lurlmon
 
 		else # Linux builds/binary namer
-    UPDATE_TOOL_HTTPLIB := curl
+    UPDATE_TOOL_FLAGS := -lSDL2 -lzip -lcurl
 		ifeq ($(TARGET_RPI),1)
 			EXE := $(BUILD_DIR)/$(TARGET).arm
       UPDATE_TOOL := $(BUILD_DIR)/updatetool.arm
@@ -1128,7 +1128,7 @@ $(EXE): $(O_FILES) $(MIO0_FILES:.mio0=.o) $(SOUND_OBJ_FILES) $(ULTRA_O_FILES) $(
   endif
 
 $(UPDATE_TOOL): $(UPDATE_TOOL_SOURCE)
-	$(CXX) $(UPDATE_TOOL_SOURCE) -o $@ -lSDL2 -lzip -l$(UPDATE_TOOL_HTTPLIB)
+	$(CXX) $(UPDATE_TOOL_SOURCE) -o $@ $(UPDATE_TOOL_FLAGS)
 
 .PHONY: all clean distclean default diff test load libultra res
 .PRECIOUS: $(BUILD_DIR)/bin/%.elf $(SOUND_BIN_DIR)/%.ctl $(SOUND_BIN_DIR)/%.tbl $(SOUND_SAMPLE_TABLES) $(SOUND_BIN_DIR)/%.s $(BUILD_DIR)/%
