@@ -65,19 +65,19 @@ Donate to sm64rise, the creator of Saturn, [here](https://ko-fi.com/J3J05B5WR).
 1. Install dependencies
    * Debian
      ```
-     sudo apt install git make gcc python3 libsdl2-dev libglew-dev pkgconf
+     sudo apt install git make gcc python3 libsdl2-dev libglew-dev libzip-dev pkgconf
      ```
    * Arch
      ```
-     sudo pacman -S git make gcc python3 sdl2 glew pkgconf
+     sudo pacman -S git make gcc python3 sdl2 glew libzip pkgconf
      ```
    * Fedora
      ```
-     sudo dnf install git make gcc python3 SDL2 glew pkgconf
+     sudo dnf install git make gcc python3 SDL2 glew libzip pkgconf
      ```
    * SUSE
      ```
-     sudo zypper install git make gcc SDL2 glew pkgconf
+     sudo zypper install git make gcc SDL2 glew libzip pkgconf
      ```
 2. Clone the repository
    ```
