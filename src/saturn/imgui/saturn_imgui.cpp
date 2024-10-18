@@ -1403,15 +1403,23 @@ void saturn_imgui_update() {
         if (ImGui::CollapsingHeader("Rendering")) {
             if (!ffmpeg_installed) {
                 ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.f);
-                if (ImGui::BeginChild("###no_ffmpeg", ImVec2(0, 70), true, ImGuiWindowFlags_NoScrollbar)) {
+                if (ImGui::BeginChild("###no_ffmpeg", ImVec2(0, 108), true, ImGuiWindowFlags_NoScrollbar)) {
                     ImGui::Text("FFmpeg isn't installed, so most");
                     ImGui::Text("video formats aren't supported.");
                     ImGui::Separator();
                     
 #ifdef _WIN32
-                    if (ffmpeg_download_in_progress) ImGui::ProgressBar(ffmpeg_download_progress);
+                    if (ffmpeg_download_in_progress) {
+                        ImGui::Text("Downloading...");
+                        ImGui::ProgressBar(ffmpeg_download_progress);
+                    }
                     else if (ffmpeg_install_in_progress) ImGui::Text("Installing...");
                     else if (ffmpeg_install_restart) ImGui::Text("Pending Restart");
+                    else if (getenv("MSYSTEM")) { // running in MINGW
+                        ImGui::Text("To install it, run this command");
+                        ImGui::Text("in your MINGW shell:");
+                        ImGui::InputText("###cmd_copy_paste", "pacman -S ffmpeg", 17, ImGuiInputTextFlags_ReadOnly);
+                    }
                     else {
                         if (ImGui::Button("Install")) saturn_download_ffmpeg(saturn_install_ffmpeg);
                         if (ffmpeg_download_failed) ImGui::Text("Download failed!");
