@@ -291,7 +291,7 @@ EXE := $(BUILD_DIR)/$(TARGET).html
 	ifeq ($(WINDOWS_BUILD),1)
 		EXE := $(BUILD_DIR)/$(TARGET).exe
     UPDATE_TOOL := $(BUILD_DIR)/updatetool.exe
-    UPDATE_TOOL_FLAGS := $(shell pkg-config --static --cflags --libs sdl2 libzip) -lurlmon
+    UPDATE_TOOL_FLAGS := -static `pkg-config --static --cflags --libs sdl2 libzip` -lurlmon
 
 		else # Linux builds/binary namer
     UPDATE_TOOL_FLAGS := -lSDL2 -lzip -lcurl
@@ -304,6 +304,8 @@ EXE := $(BUILD_DIR)/$(TARGET).html
 		endif
 	endif
 endif
+
+UPDATE_TOOL_FLAGS += -I include
 
 SYMBOL_MAP := $(BUILD_DIR)/symbols.map
 
@@ -759,6 +761,13 @@ else
 endif # End of LDFLAGS
 
 LDFLAGS += -lstdc++
+
+ifeq ($(WINDOWS_BUILD),1)
+  LDFLAGS += `pkg-config --static --libs libzip` -lurlmon
+  CXXFLAGS += `pkg-config --static --cflags libzip`
+else
+  LDFLAGS += -lzip -lcurl
+endif
 
 # icon
 ifeq ($(WINDOWS_BUILD),1)

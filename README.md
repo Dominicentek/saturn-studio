@@ -94,6 +94,10 @@ Donate to sm64rise, the creator of Saturn, [here](https://ko-fi.com/J3J05B5WR).
 
 ### Windows
 
+**NEW** - Saturn Studio now contains a built-in FFmpeg installer
+
+**Old/manual method:**
+
 1. You can get FFmpeg from [here](https://www.gyan.dev/ffmpeg/builds/)
 2. Once you download it, extract the archive to C:/ffmpeg
 3. Make sure that there's a directory C:/ffmpeg/bin and that it contains "ffmpeg.exe"

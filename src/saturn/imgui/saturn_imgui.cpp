@@ -41,8 +41,10 @@
 #include "saturn/saturn_video_renderer.h"
 #include "saturn/saturn_version.h"
 #include "types.h"
+#include "downloader.h"
 
 #include <SDL2/SDL.h>
+#include <zip.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -697,6 +699,93 @@ bool is_ffmpeg_installed() {
     return false;
 }
 
+bool ffmpeg_installed = true;
+#ifdef _WIN32
+std::thread ffmpeg_download_thread;
+double ffmpeg_download_progress = 0;
+bool ffmpeg_download_failed = false;
+bool ffmpeg_download_in_progress = false;
+bool ffmpeg_install_in_progress = false;
+bool ffmpeg_install_restart = false;
+
+// This can only be called in Windows
+void saturn_download_ffmpeg(void(*callback)(char* buf, size_t siz)) {
+    ffmpeg_download_in_progress = true;
+    ffmpeg_download_thread = std::thread([callback]() {
+        Downloader downloader("https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip");
+        downloader.progress([](double now, double total) {
+            if (total == 0) ffmpeg_download_progress = 0;
+            else ffmpeg_download_progress = now / total;
+        });
+        downloader.download();
+        if (downloader.status < 200 || downloader.status > 299) ffmpeg_download_failed = true;
+        ffmpeg_download_in_progress = false;
+        callback(downloader.data.data(), downloader.data.size());
+    });
+    ffmpeg_download_thread.detach();
+}
+
+void saturn_zip_extract_file(zip_t* archive, std::string file, std::string dest) {
+    std::filesystem::create_directories(std::filesystem::path(dest).parent_path());
+    zip_stat_t file_stat;
+    zip_int64_t file_index = zip_name_locate(archive, file.c_str(), ZIP_FL_NOCASE);
+    zip_file_t* zip_file = zip_fopen_index(archive, file_index, 0);
+    zip_stat_index(archive, file_index, 0, &file_stat);
+    size_t outsiz = file_stat.size;
+    char*  outbuf = (char*)malloc(outsiz);
+    zip_fread(zip_file, outbuf, outsiz);
+    zip_fclose(zip_file);
+    std::ofstream stream = std::ofstream(dest, std::ios::binary);
+    stream.write(outbuf, outsiz);
+    stream.close();
+    free(outbuf);
+}
+
+void saturn_install_ffmpeg(char* buf, size_t siz) {
+    ffmpeg_install_in_progress = true;
+    zip_error_t error;
+    zip_source_t* zip_src = zip_source_buffer_create(buf, siz, 0, &error);
+    zip_t* zip_archive = zip_open_from_source(zip_src, 0, &error);
+    zip_int64_t num_entries = zip_get_num_entries(zip_archive, 0);
+    std::string root_name;
+    for (zip_int64_t i = 0; i < num_entries; i++) {
+        std::string name = zip_get_name(zip_archive, i, 0);
+        if (name.find("essentials_build") != std::string::npos) {
+            root_name = name;
+            break;
+        }
+    }
+    saturn_zip_extract_file(zip_archive, root_name + "bin/ffmpeg.exe",  "C:/ffmpeg/ffmpeg.exe");
+    saturn_zip_extract_file(zip_archive, root_name + "bin/ffplay.exe",  "C:/ffmpeg/ffplay.exe");
+    saturn_zip_extract_file(zip_archive, root_name + "bin/ffprobe.exe", "C:/ffmpeg/ffprobe.exe");
+    zip_close(zip_archive);
+    std::string cmd = // jesus fucking christ
+        "powershell Start-Process cmd -ArgumentList '/c start /min \"\" "
+        "powershell -WindowStyle Hidden -Command "
+        "[Environment]::SetEnvironmentVariable(\\\\\\\"PATH\\\\\\\","
+        "\\\\\\\"$([Environment]::GetEnvironmentVariable(\\\\\\\"PATH\\\\\\\", \\\\\\\"Machine\\\\\\\"));"
+        "C:/ffmpeg\\\\\\\", \\\\\\\"Machine\\\\\\\");"
+        "Add-Type -Assembly System.Windows.Forms;"
+        "[System.Windows.Forms.MessageBox]::Show(\\\\\\\""
+          "Successfully installed FFmpeg. Saturn Studio needs to be restarted to take effect."
+        "\\\\\\\", \\\\\\\"Saturn Studio\\\\\\\", \\\\\\\"OK\\\\\\\", \\\\\\\"Information\\\\\\\")"
+        "' -Verb runAs";
+    printf("%s\n", cmd.c_str());
+    STARTUPINFOA si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
+    si.cb = sizeof(si);
+    CreateProcess(nullptr, (LPSTR)cmd.c_str(), nullptr, nullptr, false, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi);
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    Sleep(3); // we sleep a bit
+    ffmpeg_install_in_progress = false;
+    ffmpeg_install_restart = true;
+}
+#endif
+
 bool update_available = false;
 std::thread check_update_thread;
 
@@ -758,8 +847,6 @@ void saturn_start_program_update() {
     atexit(saturn_do_update);
     exit(0);
 }
-
-bool ffmpeg_installed = true;
 
 void saturn_imgui_init() {
     saturn_load_themes();
@@ -1316,9 +1403,23 @@ void saturn_imgui_update() {
         if (ImGui::CollapsingHeader("Rendering")) {
             if (!ffmpeg_installed) {
                 ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.f);
-                if (ImGui::BeginChild("###no_ffmpeg", ImVec2(0, 48), true, ImGuiWindowFlags_NoScrollbar)) {
-                    ImGui::Text("FFmpeg isn't installed, so some");
+                if (ImGui::BeginChild("###no_ffmpeg", ImVec2(0, 70), true, ImGuiWindowFlags_NoScrollbar)) {
+                    ImGui::Text("FFmpeg isn't installed, so most");
                     ImGui::Text("video formats aren't supported.");
+                    ImGui::Separator();
+                    
+#ifdef _WIN32
+                    if (ffmpeg_download_in_progress) ImGui::ProgressBar(ffmpeg_download_progress);
+                    else if (ffmpeg_install_in_progress) ImGui::Text("Installing...");
+                    else if (ffmpeg_install_restart) ImGui::Text("Pending Restart");
+                    else {
+                        if (ImGui::Button("Install")) saturn_download_ffmpeg(saturn_install_ffmpeg);
+                        if (ffmpeg_download_failed) ImGui::Text("Download failed!");
+                    }
+#else
+                    ImGui::Text("You can install FFmpeg through");
+                    ImGui::Text("your distro's package manager.");
+#endif
                     ImGui::EndChild();
                 }
                 ImGui::PopStyleVar();
