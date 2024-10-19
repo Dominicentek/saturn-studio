@@ -473,7 +473,8 @@ void saturn_update() {
 
 #define inv(var) ((var) * -2 + 1)
 
-    if (!saturn_imgui_is_orthographic()) {
+    if (saturn_imgui_is_capturing_video); // do nothing
+    else if (!saturn_imgui_is_orthographic()) {
         float mzoom_modif = 200;
         if (inprec) {
             mzoom_modif = 50;
@@ -711,6 +712,7 @@ void saturn_update() {
     }*/
 
     bool should_do_mouse_action = mouse_state.dist_travelled <= 3 && mouse_state.released && mouse_state.focused_on_game && !saturn_actor_is_recording_input() && !saturn_imgui_is_orthographic();
+    if (saturn_imgui_is_capturing_video()) should_do_mouse_action = false;
 
     if (setting_mario_struct_pos) {
         Vec3f dir, hit;
@@ -1027,6 +1029,16 @@ void saturn_place_keyframe(std::string id, int frame) {
         }
         if (timeline.behavior != KFBEH_DEFAULT) keyframe->curve = InterpolationCurve::WAIT;
     }
+}
+
+int saturn_keyframe_get_length() {
+    int max_len = 0;
+    for (auto& timeline : k_frame_keys) {
+        for (auto& kf : timeline.second.second) {
+            if (kf.position > max_len) max_len = kf.position;
+        }
+    }
+    return max_len;
 }
 
 // Play Animation

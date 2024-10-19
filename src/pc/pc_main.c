@@ -112,6 +112,7 @@ static inline void patch_interpolations(void) {
 
 void produce_one_frame(void) {
     if (saturn_imgui_is_processing_frame()) {
+        saturn_imgui_ui_only_frame(true);
         for (int i = 0; i < 2; i++) {
             gfx_start_frame();
             send_display_list(NULL);
@@ -119,6 +120,7 @@ void produce_one_frame(void) {
         }
         return;
     }
+    saturn_imgui_ui_only_frame(false);
 
     gfx_start_frame();
 

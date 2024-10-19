@@ -435,8 +435,6 @@ struct OrthographicRenderSettings ortho_settings = (struct OrthographicRenderSet
     .rotation_x = 25.f,
     .rotation_y = 45.f,
 };
-int video_timer = 0; // used for 1 frame delays on video captures
-                     // without this, its always 1 frame behind
 
 const float ANTIALIAS_MODIFIER = 1.f;
 
@@ -486,26 +484,24 @@ bool saturn_imgui_get_viewport(int* width, int* height) {
 
 void* framebuffer;
 pthread_t capture_thread;
-
-#define VIDEO_FRAME_DELAY 2
+int renderer_current_frame, renderer_num_frames = 0;
+bool ui_only_frame = false;
 
 void* saturn_capture_screenshot(void* image) {
-    if (video_timer-- > 0) {
-        free(image);
-        return NULL;
-    }
     processing_frame = true;
-    if (keyframe_playing) {
-        capturing_video = true;
-        video_renderer_render((unsigned char*)image);
-        if (stop_capture > 0) {
-            stop_capture--;
-            if (stop_capture == 0) {
-                capturing_video = false;
-                stop_capture = false;
-                video_renderer_finalize();
-                keyframe_playing = false;
-            }
+    if (renderer_num_frames != 0) {
+        if (renderer_current_frame >= 0) video_renderer_render((unsigned char*)image);
+        renderer_current_frame++;
+        k_current_frame = renderer_current_frame / (sixty_fps_enabled ? 2 : 1);
+        if (renderer_current_frame < 0) k_current_frame = 0;
+        if (k_current_frame != k_previous_frame) for (auto& timeline : k_frame_keys) {
+            saturn_keyframe_apply(timeline.first, k_current_frame);
+        }
+        k_previous_frame = k_current_frame;
+        if (stop_capture || renderer_current_frame == renderer_num_frames) {
+            capturing_video = false;
+            stop_capture = false;
+            video_renderer_finalize();
         }
     }
     else {
@@ -529,6 +525,10 @@ bool saturn_imgui_is_processing_frame() {
     return processing_frame;
 }
 
+void saturn_imgui_ui_only_frame(bool is_ui_only) {
+    ui_only_frame = is_ui_only;
+}
+
 void saturn_imgui_set_ortho(bool ortho_mode) {
     request_ortho_mode = ortho_mode + 1;
     orthographic_mode = ortho_mode;
@@ -536,16 +536,16 @@ void saturn_imgui_set_ortho(bool ortho_mode) {
 
 void saturn_imgui_stop_capture() {
     if (stop_capture > 0) return;
-    stop_capture = 2;
+    stop_capture = 1;
 }
 
 bool saturn_imgui_is_capturing_transparent_video() {
-    return capturing_video && transparency_enabled && ((video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || !keyframe_playing);
+    return capturing_video && transparency_enabled && ((video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY) || renderer_num_frames == 0);
 }
 
 void saturn_imgui_set_frame_buffer(void* fb, bool do_capture) {
     framebuffer = fb;
-    if (!processing_frame && capturing_video && (do_capture || (sixty_fps_enabled && capturing_video && (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS)))) {
+    if (!processing_frame && !ui_only_frame && capturing_video && (do_capture || sixty_fps_enabled)) {
         uint64_t tex_size = (uint64_t)videores[0] * (uint64_t)videores[1] * 4;
         unsigned char* image = (unsigned char*)malloc(tex_size);
         glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)fb);
@@ -609,6 +609,7 @@ void saturn_imgui_setup_dockspace() {
 }
 
 bool saturn_imgui_window(const char* title, ImGuiWindowFlags extra_flags = ImGuiWindowFlags_None) {
+    if (capturing_video) return false;
     if (visible_windows.find(title) == visible_windows.end()) {
         std::cout << "! Window " << title << " not registered" << std::endl;
         return false;
@@ -878,7 +879,6 @@ void saturn_imgui_init() {
 }
 
 void saturn_imgui_handle_events(SDL_Event * event) {
-    if (saturn_imgui_is_capturing_video()) return;
     ImGui_ImplSDL2_ProcessEvent(event);
     switch (event->type){
         case SDL_KEYDOWN:
@@ -1506,24 +1506,27 @@ void saturn_imgui_update() {
                 if (!capture_destination_file.empty()) {
                     capturing_video = true;
                     keyframe_playing = false;
-                    video_timer = VIDEO_FRAME_DELAY;
+                    renderer_num_frames = 0;
                 }
             }
             ImGui::SameLine();
+            ImGui::BeginDisabled(k_frame_keys.empty());
             if (ImGui::Button("Render Video")) {
                 capture_destination_file = save_file_dialog("Save Video", video_formats);
                 if (!capture_destination_file.empty()) {
-                    capturing_video = true;
-                    video_timer = VIDEO_FRAME_DELAY;
-                    saturn_play_keyframe();
                     saturn_set_video_destination(capture_destination_file);
                     transparency_enabled = checkbox_transparency_enabled;
                     sixty_fps_enabled = checkbox_sixty_fps_enabled;
                     if (!(video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS)) sixty_fps_enabled = false;
                     if (!(video_renderer_flags & VIDEO_RENDERER_FLAGS_TRANSPARECY)) transparency_enabled = false;
+                    capturing_video = true;
+                    keyframe_playing = false;
+                    renderer_current_frame = -3;
+                    renderer_num_frames = saturn_keyframe_get_length() * (sixty_fps_enabled ? 2 : 1);
                     video_renderer_init(videores[0], videores[1], sixty_fps_enabled);
                 }
             }
+            ImGui::EndDisabled();
         }
         ImGui::End();
     }
@@ -1745,7 +1748,7 @@ void saturn_imgui_update() {
 
     saturn_keyframe_window();
 
-    if (update_available) {
+    if (update_available && !capturing_video) {
         ImGui::Begin("Update Available", &update_available, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
         ImGui::Text("A new Saturn Studio version is released");
         ImGui::Separator();
@@ -1759,9 +1762,11 @@ void saturn_imgui_update() {
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar;
     float height = ImGui::GetFrameHeight();
 
+    ImVec2 menu_bar_size;
     if (showStatusBars) {
         if (ImGui::BeginViewportSideBar("##SecondaryMenuBar", viewport, ImGuiDir_Up, height, window_flags)) {
             if (ImGui::BeginMenuBar()) {
+                menu_bar_size = ImGui::GetWindowSize();
                 if (is_recording) ImGui::EndDisabled();
                 if (ImGui::BeginMenu("x")) {
                     for (auto& window : visible_windows) {
@@ -1810,6 +1815,36 @@ void saturn_imgui_update() {
             }
             ImGui::End();
         }
+    }
+
+    if (capturing_video) {
+        ImVec2 viewport_size = ImGui::GetMainViewport()->Size;
+        ImVec2 window_size = ImVec2(viewport_size.x, viewport_size.y - menu_bar_size.y + 8);
+        ImGuiWindowFlags base_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
+        ImGui::SetNextWindowPos(ImVec2(0, menu_bar_size.y - 8), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
+        ImGui::Begin("Preview", nullptr, base_flags | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMouseInputs);
+        float image_bounds[4];
+        saturn_get_game_bounds(image_bounds, window_size);
+        ImVec2 cursor_pos = ImGui::GetCursorPos();
+        ImGui::SetCursorPos(ImVec2(image_bounds[0] + cursor_pos.x, image_bounds[1] + cursor_pos.y));
+        ImGui::Image(
+            framebuffer, ImVec2(image_bounds[2], image_bounds[3]),
+            ImVec2(0.0f, 0.0f),
+            ImVec2(1.0f, 1.0f)
+        );
+        ImGui::End();
+        if (renderer_num_frames > 0) {
+            int curr_frame = renderer_current_frame < 0 ? 0 : renderer_current_frame;
+            ImGui::SetNextWindowPos(ImVec2(8, menu_bar_size.y + 8), ImGuiCond_Always);
+            ImGui::SetNextWindowSizeConstraints(ImVec2(250, 0), ImVec2(FLT_MAX, FLT_MAX));
+            ImGui::Begin("Rendering...", nullptr, base_flags);
+            ImGui::ProgressBar(curr_frame / (float)renderer_num_frames);
+            if (ImGui::Button("Cancel")) saturn_imgui_stop_capture();
+            ImGui::SameLine();
+            ImGui::Text("%d/%d", curr_frame, renderer_num_frames);
+            ImGui::End();
+        }   
     }
 
     /*if (windowStats) {

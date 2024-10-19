@@ -232,6 +232,7 @@ extern "C" {
     void saturn_update(void);
     void saturn_play_animation(enum MarioAnimID anim);
     void saturn_play_keyframe();
+    int  saturn_keyframe_get_length();
     void saturn_print(const char*);
     const char* saturn_get_stage_name(int);
     bool saturn_do_load();
