@@ -718,9 +718,9 @@ void saturn_download_ffmpeg(void(*callback)(char* buf, size_t siz)) {
             else ffmpeg_download_progress = now / total;
         });
         downloader.download();
-        if (downloader.status < 200 || downloader.status > 299) ffmpeg_download_failed = true;
         ffmpeg_download_in_progress = false;
-        callback(downloader.data.data(), downloader.data.size());
+        if (downloader.status < 200 || downloader.status > 299) ffmpeg_download_failed = true;
+        else callback(downloader.data.data(), downloader.data.size());
     });
     ffmpeg_download_thread.detach();
 }
@@ -1418,11 +1418,14 @@ void saturn_imgui_update() {
                     else if (getenv("MSYSTEM")) { // running in MINGW
                         ImGui::Text("To install it, run this command");
                         ImGui::Text("in your MINGW shell:");
-                        ImGui::InputText("###cmd_copy_paste", "pacman -S ffmpeg", 17, ImGuiInputTextFlags_ReadOnly);
+                        ImGui::InputText("###cmd_copy_paste", "pacman -S mingw-w64-x86_64-ffmpeg", 34, ImGuiInputTextFlags_ReadOnly);
                     }
                     else {
                         if (ImGui::Button("Install")) saturn_download_ffmpeg(saturn_install_ffmpeg);
-                        if (ffmpeg_download_failed) ImGui::Text("Download failed!");
+                        if (ffmpeg_download_failed) {
+                            ImGui::SameLine();
+                            ImGui::Text("Downlad failed!");
+                        }
                     }
 #else
                     ImGui::Text("You can install FFmpeg through");

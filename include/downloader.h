@@ -65,7 +65,7 @@ public:
             else url += _url[i];
         }
 #ifdef _WIN32
-        std::string destfile = std::string(std::getenv("TEMP")) + "/saturn-updater-download-dest.dat";
+        std::string destfile = std::string(std::getenv("TEMP")) + "/saturn-download-dest.dat";
         if (URLDownloadToFile(NULL, url.c_str(), destfile.c_str(), 0, this) == S_OK) {
             int filesize = std::filesystem::file_size(destfile);
             std::ifstream stream = std::ifstream(destfile, std::ios::binary);
@@ -88,7 +88,7 @@ public:
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
         struct curl_slist* header = nullptr;
         header = curl_slist_append(header, "Accept: */*");
-        header = curl_slist_append(header, "User-Agent: saturn-updater");
+        header = curl_slist_append(header, "User-Agent: saturn-studio-downloader");
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header);
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
         curl_easy_perform(curl);
