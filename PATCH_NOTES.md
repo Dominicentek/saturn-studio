@@ -1,19 +1,17 @@
-(studio): `2024-10-10`
+(studio): `2024-10-19`
 
-Another bugfix update with some extra features
+Quality of life update :3
 
-***NEW*** - __**Level Parameters**__
+***NEW*** - __**Auto-updater**__
 
-For levels like TTC or WDW that alter themselves based on how you entered the painting, the state is now selectable
+* An auto-updater is going to prompt you to update whenever there's a new version available
+* Whenever you click the Update button, the latest release is going to be downloaded off GitHub and installed automatically
 
-***OVERHAUL*** - __**Better render export**__
+***NEW*** - __**Built-in FFmpeg Installer**__
 
-* A file dialog now pops up whenever you capture a screenshot or render a video
-* The video format is now selected through the file dialog
+* If you don't have FFmpeg installed, you can install it using the one-click "Install" button
+  * Only works on Windows, Linux users still have to install it using their distro's package manager
 
-**Fixed bugs:**
+***OVERHAUL*** - __**Revamped Renderer Interface**__
 
-- Fixed invisible objects in levels like WF
-- Fixed input recording not advancing animation frames in some cases
-- Fixed BLJ crash
-- Fixed some objects still being visible in auto-chroma
+* A "Cancel" button and a progress bar has been added with a full-window preview
