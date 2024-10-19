@@ -473,7 +473,7 @@ void saturn_update() {
 
 #define inv(var) ((var) * -2 + 1)
 
-    if (saturn_imgui_is_capturing_video); // do nothing
+    if (saturn_imgui_is_capturing_video()); // do nothing
     else if (!saturn_imgui_is_orthographic()) {
         float mzoom_modif = 200;
         if (inprec) {
