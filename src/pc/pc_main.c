@@ -79,7 +79,8 @@ static bool inited = false;
 #include "game/display.h" // for gGlobalTimer
 void send_display_list(struct SPTask *spTask) {
     if (!inited) return;
-    gfx_run((Gfx *)spTask->task.t.data_ptr);
+    if (!spTask) gfx_run(NULL);
+    else gfx_run((Gfx *)spTask->task.t.data_ptr);
 }
 
 #ifdef VERSION_EU
@@ -110,6 +111,15 @@ static inline void patch_interpolations(void) {
 }
 
 void produce_one_frame(void) {
+    if (saturn_imgui_is_processing_frame()) {
+        for (int i = 0; i < 2; i++) {
+            gfx_start_frame();
+            send_display_list(NULL);
+            gfx_end_frame();
+        }
+        return;
+    }
+
     gfx_start_frame();
 
     f32 master_mod;

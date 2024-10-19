@@ -661,11 +661,10 @@ static void gfx_opengl_on_resize(void) {
 }
 
 u8 frameBreak = 0;
-u8 frameBufferCreated = 0;
+bool framebuffer_created = false;
 GLuint framebuffer_id;
 GLuint depthbuffer_id;
 GLuint rendertexture_id;
-
 GLuint drawbuffer_id;
 GLuint drawtexture_id;
 
@@ -687,32 +686,36 @@ static void gfx_opengl_start_frame(void) {
         //glDisable(GL_DITHER);
     }
 
-    if (saturn_imgui_get_viewport(NULL, NULL)) {
-        frameBufferCreated = 1;
-        glGenFramebuffers(1, &framebuffer_id);
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_id);
-        if (configWindow.enable_antialias) {
-            glGenTextures(1, &rendertexture_id);
-            glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, rendertexture_id);
-            glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 2, GL_RGBA, gfx_current_dimensions.width, gfx_current_dimensions.height, GL_TRUE);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, rendertexture_id, 0);
-            glGenRenderbuffers(1, &depthbuffer_id);
-            glBindRenderbuffer(GL_RENDERBUFFER, depthbuffer_id);
-            glRenderbufferStorageMultisample(GL_RENDERBUFFER, 2, GL_DEPTH_COMPONENT, gfx_current_dimensions.width, gfx_current_dimensions.height);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuffer_id);
-        }
-        else {
-            glGenTextures(1, &rendertexture_id);
-            glBindTexture(GL_TEXTURE_2D, rendertexture_id);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gfx_current_dimensions.width, gfx_current_dimensions.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rendertexture_id, 0);
-            glGenRenderbuffers(1, &depthbuffer_id);
-            glBindRenderbuffer(GL_RENDERBUFFER, depthbuffer_id);
-            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, gfx_current_dimensions.width, gfx_current_dimensions.height);
-            glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuffer_id);
-        }
+    if (framebuffer_created) {
+        glDeleteFramebuffers(1, &framebuffer_id);
+        glDeleteRenderbuffers(1, &depthbuffer_id);
+        glDeleteTextures(1, &rendertexture_id);
+    }
+    framebuffer_created = true;
+
+    glGenFramebuffers(1, &framebuffer_id);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_id);
+    if (configWindow.enable_antialias) {
+        glGenTextures(1, &rendertexture_id);
+        glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, rendertexture_id);
+        glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 2, GL_RGBA, gfx_current_dimensions.width, gfx_current_dimensions.height, GL_TRUE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, rendertexture_id, 0);
+        glGenRenderbuffers(1, &depthbuffer_id);
+        glBindRenderbuffer(GL_RENDERBUFFER, depthbuffer_id);
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, 2, GL_DEPTH_COMPONENT, gfx_current_dimensions.width, gfx_current_dimensions.height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuffer_id);
+    }
+    else {
+        glGenTextures(1, &rendertexture_id);
+        glBindTexture(GL_TEXTURE_2D, rendertexture_id);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gfx_current_dimensions.width, gfx_current_dimensions.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rendertexture_id, 0);
+        glGenRenderbuffers(1, &depthbuffer_id);
+        glBindRenderbuffer(GL_RENDERBUFFER, depthbuffer_id);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, gfx_current_dimensions.width, gfx_current_dimensions.height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthbuffer_id);
     }
 
     glDisable(GL_SCISSOR_TEST);
@@ -736,32 +739,20 @@ static void draw_to_draw_buffer() {
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, drawtexture_id, 0);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer_id);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawbuffer_id);
-    if (saturn_imgui_is_capturing_video()) glBlitFramebuffer(
+    glBlitFramebuffer(
         0, 0, gfx_current_dimensions.width, gfx_current_dimensions.height,
         0, gfx_current_dimensions.height, gfx_current_dimensions.width, 0,
-        GL_COLOR_BUFFER_BIT, GL_NEAREST
-    );
-    else glBlitFramebuffer(
-        0, 0, gfx_current_dimensions.width, gfx_current_dimensions.height,
-        0, 0, gfx_current_dimensions.width, gfx_current_dimensions.height,
         GL_COLOR_BUFFER_BIT, GL_NEAREST
     );
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 static void gfx_opengl_end_frame(void) {
-    if (frameBufferCreated) {
-        draw_to_draw_buffer();
-        saturn_imgui_set_frame_buffer((void*)(intptr_t)drawtexture_id, frameBreak == 1);
-    }
+    draw_to_draw_buffer();
+    saturn_imgui_set_frame_buffer((void*)(intptr_t)drawtexture_id, frameBreak == 1);
     saturn_imgui_update();
-    if (frameBufferCreated) {
-        glDeleteFramebuffers(1, &framebuffer_id);
-        glDeleteRenderbuffers(1, &depthbuffer_id);
-        glDeleteTextures(1, &rendertexture_id);
-        glDeleteFramebuffers(1, &drawbuffer_id);
-        glDeleteTextures(1, &drawtexture_id);
-    }
+    glDeleteFramebuffers(1, &drawbuffer_id);
+    glDeleteTextures(1, &drawtexture_id);
 }
 
 static void gfx_opengl_finish_render(void) {

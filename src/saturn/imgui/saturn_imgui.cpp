@@ -422,6 +422,7 @@ void imgui_update_theme() {
 int videores[] = { 1920, 1080 };
 bool capturing_video = false;
 bool orthographic_mode = false;
+bool processing_frame = false;
 bool transparency_enabled = true, checkbox_transparency_enabled = true;
 bool sixty_fps_enabled = true, checkbox_sixty_fps_enabled = true;
 std::string capture_destination_file = "";
@@ -484,21 +485,19 @@ bool saturn_imgui_get_viewport(int* width, int* height) {
 }
 
 void* framebuffer;
+pthread_t capture_thread;
 
 #define VIDEO_FRAME_DELAY 2
 
-void saturn_capture_screenshot() {
-    if (!capturing_video) return;
-    if (video_timer-- > 0) return;
-    capturing_video = false;
-    uint64_t tex_size = (uint64_t)videores[0] * (uint64_t)videores[1] * 4;
-    unsigned char* image = (unsigned char*)malloc(tex_size);
-    glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)framebuffer);
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-    glBindTexture(GL_TEXTURE_2D, 0);
+void* saturn_capture_screenshot(void* image) {
+    if (video_timer-- > 0) {
+        free(image);
+        return NULL;
+    }
+    processing_frame = true;
     if (keyframe_playing) {
         capturing_video = true;
-        video_renderer_render(image);
+        video_renderer_render((unsigned char*)image);
         if (stop_capture > 0) {
             stop_capture--;
             if (stop_capture == 0) {
@@ -509,8 +508,13 @@ void saturn_capture_screenshot() {
             }
         }
     }
-    else pngutils_write_png(capture_destination_file.c_str(), (int)videores[0], (int)videores[1], 4, image, 0);
+    else {
+        capturing_video = false;
+        pngutils_write_png(capture_destination_file.c_str(), (int)videores[0], (int)videores[1], 4, image, 0);
+    }
     free(image);
+    processing_frame = false;
+    return NULL;
 }
 
 bool saturn_imgui_is_capturing_video() {
@@ -519,6 +523,10 @@ bool saturn_imgui_is_capturing_video() {
 
 bool saturn_imgui_is_orthographic() {
     return orthographic_mode;
+}
+
+bool saturn_imgui_is_processing_frame() {
+    return processing_frame;
 }
 
 void saturn_imgui_set_ortho(bool ortho_mode) {
@@ -537,7 +545,15 @@ bool saturn_imgui_is_capturing_transparent_video() {
 
 void saturn_imgui_set_frame_buffer(void* fb, bool do_capture) {
     framebuffer = fb;
-    if (do_capture || (sixty_fps_enabled && capturing_video && (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS))) saturn_capture_screenshot();
+    if (!processing_frame && capturing_video && (do_capture || (sixty_fps_enabled && capturing_video && (video_renderer_flags & VIDEO_RENDERER_FLAGS_60FPS)))) {
+        uint64_t tex_size = (uint64_t)videores[0] * (uint64_t)videores[1] * 4;
+        unsigned char* image = (unsigned char*)malloc(tex_size);
+        glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)fb);
+        glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        pthread_create(&capture_thread, NULL, saturn_capture_screenshot, image);
+        pthread_detach(capture_thread);
+    }
 }
 
 // Set up ImGui
@@ -1691,8 +1707,8 @@ void saturn_imgui_update() {
         ImGui::SetCursorPos(ImVec2(image_bounds[0] + cursor_pos.x, image_bounds[1] + cursor_pos.y));
         ImGui::Image(
             framebuffer, ImVec2(image_bounds[2], image_bounds[3]),
-            ImVec2(0.0f, capturing_video ? 0.0f : 1.0f),
-            ImVec2(1.0f, capturing_video ? 1.0f : 0.0f)
+            ImVec2(0.0f, 0.0f),
+            ImVec2(1.0f, 1.0f)
         );
         if (is_recording) ImGui::BeginDisabled();
         ImGui::PopStyleVar();
