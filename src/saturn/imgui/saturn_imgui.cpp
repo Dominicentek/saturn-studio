@@ -1819,15 +1819,14 @@ void saturn_imgui_update() {
 
     if (capturing_video) {
         ImVec2 viewport_size = ImGui::GetMainViewport()->Size;
-        ImVec2 window_size = ImVec2(viewport_size.x, viewport_size.y - menu_bar_size.y + 8);
+        ImVec2 window_size = ImVec2(viewport_size.x, viewport_size.y - menu_bar_size.y);
         ImGuiWindowFlags base_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
-        ImGui::SetNextWindowPos(ImVec2(0, menu_bar_size.y - 8), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(0, menu_bar_size.y), ImGuiCond_Always);
         ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
         ImGui::Begin("Preview", nullptr, base_flags | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMouseInputs);
         float image_bounds[4];
         saturn_get_game_bounds(image_bounds, window_size);
-        ImVec2 cursor_pos = ImGui::GetCursorPos();
-        ImGui::SetCursorPos(ImVec2(image_bounds[0] + cursor_pos.x, image_bounds[1] + cursor_pos.y));
+        ImGui::SetCursorPos(ImVec2(image_bounds[0], image_bounds[1]));
         ImGui::Image(
             framebuffer, ImVec2(image_bounds[2], image_bounds[3]),
             ImVec2(0.0f, 0.0f),
