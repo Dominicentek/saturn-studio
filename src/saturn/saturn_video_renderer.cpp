@@ -69,7 +69,7 @@ void gif_init(int w, int h, bool fps60) {
 void mov_init(int w, int h, bool fps60) {
     video_width = w;
     video_height = h;
-    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v qtrle -pix_fmt argb \"" + output + "\"";
+    std::string cmd = "ffmpeg -y -r " + std::string(fps60 ? "60" : "30") + " -f rawvideo -pix_fmt rgba -s " + std::to_string(w) + "x" + std::to_string(h) + " -i - -c:v prores_ks -pix_fmt yuva444p10le \"" + output + "\"";
 #ifdef _WIN32
     ffmpeg = popen(cmd.c_str(), "wb");
 #else
