@@ -1,8 +1,5 @@
-(studio): `2025-02-05`
+(studio): `2025-09-29`
 
-really small bugfix update
-thamks to @ManIsCat2 for fixing the bugs 🙏
+Yes, this version is just a one line code change.
 
-* Color index textures no longer crash the game
-* Multitextures no longer crash the game
-* Different file format picker
+* Transparent .mov videos now actually work with VEGAS
