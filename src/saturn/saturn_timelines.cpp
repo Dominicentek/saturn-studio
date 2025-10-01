@@ -26,6 +26,7 @@ std::map<std::string, std::vector<std::string>> kf_switch_names = {
 #define ARR_ENTRY(arr, index) (void*)(offsetof(MarioActor, arr) + (index) * sizeof(*((MarioActor*)0)->arr))
 #define CC_ENTRY(index) ARR_ENTRY(colorcode, index)
 #define BONE_ENTRY(index) ARR_ENTRY(bones, index)
+#define MCOMP_BONE_ENTRY(index) ARR_ENTRY(mcompbones, index)
 #define SCALER_ENTRY(index) ARR_ENTRY(scaler, index)
 #define OBJ_BONE(index) SATURN_KFENTRY_FLOAT("k_objbone_" #index, BONE_ENTRY(index + 1), 3, "Bone " #index, true);
 
@@ -106,7 +107,7 @@ void saturn_fill_data_table() {
     SATURN_KFENTRY_FLOAT("k_mariobone_5", BONE_ENTRY(5), 3, "Left Arm", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_6", BONE_ENTRY(6), 3, "Upper Left Arm", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_7", BONE_ENTRY(7), 3, "Lower Left Arm", true);
-    SATURN_KFENTRY_FLOAT("k_mariobone_8", BONE_ENTRY(9), 3, "Left Hand", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_8", BONE_ENTRY(8), 3, "Left Hand", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_9", BONE_ENTRY(9), 3, "Right Arm", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_10", BONE_ENTRY(10), 3, "Upper Right Arm", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_11", BONE_ENTRY(11), 3, "Lower Right Arm", true);
@@ -119,6 +120,19 @@ void saturn_fill_data_table() {
     SATURN_KFENTRY_FLOAT("k_mariobone_18", BONE_ENTRY(18), 3, "Upper Right Leg", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_19", BONE_ENTRY(19), 3, "Lower Right Leg", true);
     SATURN_KFENTRY_FLOAT("k_mariobone_20", BONE_ENTRY(20), 3, "Right Foot", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_21", MCOMP_BONE_ENTRY(0), 3, "MCOMP BONE 1", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_22", MCOMP_BONE_ENTRY(1), 3, "MCOMP BONE 2", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_23", MCOMP_BONE_ENTRY(2), 3, "MCOMP BONE 3", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_24", MCOMP_BONE_ENTRY(3), 3, "MCOMP BONE 4", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_25", MCOMP_BONE_ENTRY(4), 3, "MCOMP BONE 5", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_26", MCOMP_BONE_ENTRY(5), 3, "MCOMP BONE 6", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_27", MCOMP_BONE_ENTRY(6), 3, "MCOMP BONE 7", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_28", MCOMP_BONE_ENTRY(7), 3, "MCOMP BONE 8", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_29", MCOMP_BONE_ENTRY(8), 3, "MCOMP BONE 9", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_30", MCOMP_BONE_ENTRY(9), 3, "MCOMP BONE 10", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_31", MCOMP_BONE_ENTRY(10), 3, "MCOMP BONE 11", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_32", MCOMP_BONE_ENTRY(11), 3, "MCOMP BONE 12", true);
+    SATURN_KFENTRY_FLOAT("k_mariobone_33", MCOMP_BONE_ENTRY(12), 3, "MCOMP BONE 13", true);
     SATURN_KFENTRY_FLOAT("k_objbone_t", BONE_ENTRY(0), 3, "Translation", true);
     SATURN_KFENTRY_FLOAT("k_objbone_0", BONE_ENTRY(1), 3, "Root", true);
     OBJ_BONE(1);
